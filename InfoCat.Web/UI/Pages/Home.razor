@@ -1,0 +1,46 @@
+﻿@page "/"
+@page "/traces/{SelectedTraceId}"
+
+@using Microsoft.AspNetCore.Components.QuickGrid
+
+<PageTitle>Traces</PageTitle>
+
+<div class="page">
+
+    <h1>Traces</h1>
+
+    <div class="traces">
+
+        <QuickGrid Items="this.TracesRepo.Traces"
+                   Virtualize="true">
+
+            <TemplateColumn Title="Name">
+                <NavLink href="@($"traces/{Uri.EscapeDataString(context.Id)}")">
+                    @(context.RootSpan?.Name ?? context.Id)
+                </NavLink>
+            </TemplateColumn>
+
+            <PropertyColumn Title="Spans"
+                            Property="@(t => t.Spans.Length)"
+                            Sortable="true" />
+        </QuickGrid>
+    </div>
+
+    @{
+        var selectedTrace = this.SelectedTrace;
+        if (selectedTrace is not null)
+        {
+            <div class="trace">
+                <ul class="spans">
+                    @foreach (var span in selectedTrace.Spans)
+                    {
+                        <li class="span">
+                            <div>@span.Name</div>
+                            <div>@(span.StartTime - span.EndTime)</div>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    }
+</div>
