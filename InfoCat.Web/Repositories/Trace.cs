@@ -1,7 +1,7 @@
 ﻿namespace InfoCat.Web.Repositories;
 using System.Collections.Immutable;
 
-public sealed record TraceData
+public sealed record Trace
 {
     private readonly ReaderWriterLockSlim mLock = new();
 

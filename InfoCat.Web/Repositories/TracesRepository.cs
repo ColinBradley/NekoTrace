@@ -6,12 +6,12 @@ public class TracesRepository
 {
     private readonly ReaderWriterLockSlim mLock = new();
 
-    private readonly Dictionary<string, TraceData> mTracesById = [];
+    private readonly Dictionary<string, Trace> mTracesById = [];
 
-    public IQueryable<TraceData> Traces { get; private set; } = 
-        Array.Empty<TraceData>().AsQueryable();
+    public IQueryable<Trace> Traces { get; private set; } = 
+        Array.Empty<Trace>().AsQueryable();
 
-    internal TraceData GetOrAddTrace(ByteString traceId)
+    internal Trace GetOrAddTrace(ByteString traceId)
     {
         var stringId = traceId.ToBase64();
 
@@ -25,7 +25,7 @@ public class TracesRepository
                 
                 if (!mTracesById.TryGetValue(stringId, out trace))
                 {
-                    trace = mTracesById[stringId] = new TraceData() { Id = stringId };
+                    trace = mTracesById[stringId] = new Trace() { Id = stringId };
                     Traces = mTracesById.Values.ToArray().AsQueryable();
                 }
 
@@ -40,7 +40,7 @@ public class TracesRepository
         }
     }
 
-    internal TraceData? TryGetTrace(string id)
+    internal Trace? TryGetTrace(string id)
     {
         mLock.EnterReadLock();
 

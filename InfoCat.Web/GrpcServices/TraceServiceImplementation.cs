@@ -1,6 +1,7 @@
 using Grpc.Core;
 using InfoCat.Web.Repositories;
 using OpenTelemetry.Proto.Collector.Trace.V1;
+using OpenTelemetry.Proto.Common.V1;
 using StatusCode = OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode;
 
 namespace InfoCat.Web.GrpcServices;
@@ -52,7 +53,7 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
             ParentSpanId = span.ParentSpanId.ToBase64(),
             Name = span.Name,
             Kind = span.Kind,
-            Attributes = span.Attributes.ToDictionary(e => e.Key, e => e.Value),
+            Attributes = span.Attributes.ToDictionary(e => e.Key, e => ConvertAnyValue(e.Value)),
             StartTime = TimeFromUnixNano(span.StartTimeUnixNano),
             EndTime = TimeFromUnixNano(span.EndTimeUnixNano),
             StatusCode = span.Status?.Code ?? StatusCode.Unset,
@@ -67,14 +68,30 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
                     Attributes = e.Attributes.ToDictionary(e => e.Key, e => e.Value),
                 }),
             ],
-            Flags = span.Flags,
             Links =
             [
-                .. span.Links.Select(l => l.Attributes.ToDictionary(e => e.Key, e => e.Value)),
+                .. span.Links.Select(l => l.Attributes.ToDictionary(e => e.Key, e => ConvertAnyValue(e.Value))),
             ],
         };
     }
 
     private static DateTimeOffset TimeFromUnixNano(ulong time) =>
-        DateTimeOffset.FromUnixTimeMilliseconds(Convert.ToInt64(time / 1_000_000));
+        DateTimeOffset.UnixEpoch.AddTicks(Convert.ToInt64(time / 100));
+
+    private static object ConvertAnyValue(AnyValue value)
+    {
+        if (value.HasStringValue)
+            return value.StringValue;
+
+        if (value.HasBoolValue)
+            return value.BoolValue;
+
+        if (value.HasIntValue)
+            return value.IntValue;
+
+        if (value.HasDoubleValue)
+            return value.DoubleValue;
+
+        throw new Exception("Unknown content");
+    }
 }

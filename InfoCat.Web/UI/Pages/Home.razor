@@ -31,6 +31,8 @@
         if (selectedTrace is not null)
         {
             <div class="trace">
+                <canvas @ref="this.TraceFlameCanvas"></canvas>
+
                 <ul class="spans">
                     @foreach (var span in selectedTrace.Spans)
                     {
