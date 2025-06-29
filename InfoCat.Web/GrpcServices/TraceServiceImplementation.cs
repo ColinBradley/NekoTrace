@@ -1,3 +1,4 @@
+using Google.Protobuf.Collections;
 using Grpc.Core;
 using InfoCat.Web.Repositories;
 using OpenTelemetry.Proto.Collector.Trace.V1;
@@ -22,13 +23,17 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
     {
         foreach (var resourceSpan in request.ResourceSpans)
         {
+            var resourceAttributes = ConvertAttributes(resourceSpan.Resource.Attributes).ToArray();
+
             foreach (var scopeSpan in resourceSpan.ScopeSpans)
             {
+                var scopeAttributes = ConvertAttributes(scopeSpan.Scope.Attributes).ToArray();
+
                 foreach (var span in scopeSpan.Spans)
                 {
                     mTraces
                         .GetOrAddTrace(span.TraceId)
-                        .AddSpan(ConvertSpan(span));
+                        .AddSpan(ConvertSpan(span, [..resourceAttributes, ..scopeAttributes]));
                 }
             }
         }
@@ -45,17 +50,19 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
         );
     }
 
-    private static SpanData ConvertSpan(OpenTelemetry.Proto.Trace.V1.Span span)
+    private static SpanData ConvertSpan(OpenTelemetry.Proto.Trace.V1.Span span, IEnumerable<KeyValuePair<string, object>> extraAttributes)
     {
         return new SpanData()
         {
             Id = span.SpanId.ToBase64(),
-            ParentSpanId = span.ParentSpanId.ToBase64(),
+            ParentSpanId = span.ParentSpanId.IsEmpty ? null : span.ParentSpanId.ToBase64(),
             Name = span.Name,
             Kind = span.Kind,
-            Attributes = span.Attributes.ToDictionary(e => e.Key, e => ConvertAnyValue(e.Value)),
+            Attributes = new([.. ConvertAttributes(span.Attributes), ..extraAttributes]),
             StartTime = TimeFromUnixNano(span.StartTimeUnixNano),
+            StartTimeMs = span.StartTimeUnixNano / 1_000_000.0,
             EndTime = TimeFromUnixNano(span.EndTimeUnixNano),
+            EndTimeMs = span.EndTimeUnixNano / 1_000_000.0,
             StatusCode = span.Status?.Code ?? StatusCode.Unset,
             StatusMessage = span.Status?.Message,
             TraceState = span.TraceState,
@@ -94,4 +101,7 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
 
         throw new Exception("Unknown content");
     }
+
+    private static IEnumerable<KeyValuePair<string, object>> ConvertAttributes(RepeatedField<KeyValue> attributes) =>
+        attributes.Select(e => new KeyValuePair<string, object>(e.Key, ConvertAnyValue(e.Value)));
 }

@@ -10,9 +10,14 @@
     <h1>Traces</h1>
 
     <div class="traces">
-
         <QuickGrid Items="this.TracesRepo.Traces"
                    Virtualize="true">
+
+            <PropertyColumn Title="Start Time"
+                            Property="@(t => t.Start)"
+                            Sortable="true" 
+                            IsDefaultSortColumn="true"
+                            InitialSortDirection="SortDirection.Descending"/>
 
             <TemplateColumn Title="Name">
                 <NavLink href="@($"traces/{Uri.EscapeDataString(context.Id)}")">
@@ -21,7 +26,11 @@
             </TemplateColumn>
 
             <PropertyColumn Title="Spans"
-                            Property="@(t => t.Spans.Length)"
+                            Property="@(t => t.Spans.Count)"
+                            Sortable="true" />
+
+            <PropertyColumn Title="Duration"
+                            Property="@(t => t.Duration)"
                             Sortable="true" />
         </QuickGrid>
     </div>
@@ -31,17 +40,68 @@
         if (selectedTrace is not null)
         {
             <div class="trace">
-                <canvas @ref="this.TraceFlameCanvas"></canvas>
+                <canvas @ref="this.TraceFlameCanvas"
+                        width="600"
+                        height="400" />
 
-                <ul class="spans">
-                    @foreach (var span in selectedTrace.Spans)
+                <div style="overflow:auto; width: 600px;">
+                    @if (this.SelectedSpan is not null)
                     {
-                        <li class="span">
-                            <div>@span.Name</div>
-                            <div>@(span.StartTime - span.EndTime)</div>
-                        </li>
+                        <dl class="span-info">
+                            <dt>Name</dt>
+                            <dd class="name">
+                                @this.SelectedSpan.Name
+                            </dd>
+                            <dt>Duration</dt>
+                            <dd class="duration">
+                                @(this.SelectedSpan.EndTime - this.SelectedSpan.StartTime)
+                            </dd>
+                            <dt>Kind</dt>
+                            <dd class="kind">
+                                @this.SelectedSpan.Kind
+                            </dd>
+                            <dt>Message</dt>
+                            <dd class="status-message">
+                                @this.SelectedSpan.StatusMessage
+                            </dd>
+                            @foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key))
+                            {
+                                <dt>
+                                    @spanAttribute.Key
+                                </dt>
+                                <dd class="value" title="@spanAttribute.Value">
+                                    @spanAttribute.Value
+                                </dd>
+                            }
+                            <div class="events">
+                                @foreach (var spanEvent in this.SelectedSpan.Events)
+                                {
+                                    <div class="event">
+                                        <div class="name">
+                                            @spanEvent.Name
+                                        </div>
+                                        <div class="time">
+                                            @spanEvent.Time
+                                        </div>
+                                        <div class="attributes">
+                                            @foreach (var eventAttribute in spanEvent.Attributes)
+                                            {
+                                                <div class="event">
+                                                    <div class="key">
+                                                        @eventAttribute.Key
+                                                    </div>
+                                                    <div class="value">
+                                                        @eventAttribute.Value
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </dl>
                     }
-                </ul>
+                </div>
             </div>
         }
     }

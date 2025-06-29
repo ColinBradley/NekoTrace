@@ -8,6 +8,8 @@ public class TracesRepository
 
     private readonly Dictionary<string, Trace> mTracesById = [];
 
+    public event Action<string>? TracesChanged;
+
     public IQueryable<Trace> Traces { get; private set; } = 
         Array.Empty<Trace>().AsQueryable();
 
@@ -25,8 +27,8 @@ public class TracesRepository
                 
                 if (!mTracesById.TryGetValue(stringId, out trace))
                 {
-                    trace = mTracesById[stringId] = new Trace() { Id = stringId };
-                    Traces = mTracesById.Values.ToArray().AsQueryable();
+                    trace = mTracesById[stringId] = new Trace() { Id = stringId, Repository = this };
+                    this.Traces = mTracesById.Values.ToArray().AsQueryable();
                 }
 
                 mLock.ExitWriteLock();
@@ -54,5 +56,10 @@ public class TracesRepository
         {
             mLock.ExitReadLock();
         }
+    }
+
+    internal void OnTraceChanged(Trace trace)
+    {
+        this.TracesChanged?.Invoke(trace.Id);
     }
 }

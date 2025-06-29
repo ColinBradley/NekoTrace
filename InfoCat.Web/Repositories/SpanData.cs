@@ -17,9 +17,13 @@ public sealed record SpanData
     public required Dictionary<string, object> Attributes { get; init; }
     
     public required DateTimeOffset StartTime { get; init; }
-    
+
+    public required double StartTimeMs { get; init; }
+
     public required DateTimeOffset EndTime { get; init; }
-    
+
+    public required double EndTimeMs { get; init; }
+
     public required StatusCode StatusCode { get; init; }
     
     public required string? StatusMessage { get; init; }

@@ -1,23 +1,25 @@
 export interface SpanEvent {
-    name: string;
-    time: string; // ISO 8601 string (DateTimeOffset in C#)
-    attributes: Record<string, unknown>;
+    readonly name: string;
+    readonly time: string;
+    readonly attributes: Record<string, string | number | boolean>;
 }
 
 export interface SpanData {
-    id: string;
-    parentSpanId: string | null;
-    name: string;
-    kind: SpanKind;
-    attributes: Record<string, unknown>;
-    startTime: string; // ISO 8601 string (DateTimeOffset in C#)
-    endTime: string;   // ISO 8601 string (DateTimeOffset in C#)
-    statusCode: unknown;
-    statusMessage: string | null;
-    traceState: string | null;
-    events: SpanEvent[];
-    flags: number;
-    links: Record<string, unknown>[];
+    readonly id: string;
+    readonly parentSpanId?: string;
+    readonly name: string;
+    readonly kind: SpanKind;
+    readonly attributes: Record<string, string | number | boolean>;
+    readonly startTime: string;
+    readonly startTimeMs: number;
+    readonly endTime: string;
+    readonly endTimeMs: number;
+    readonly statusCode: unknown;
+    readonly statusMessage?: string;
+    readonly traceState?: string;
+    readonly events: SpanEvent[];
+    readonly flags: number;
+    readonly links: Record<string, string | number | boolean>[];
 }
 
 export type SpanKindUnspecified = 0;

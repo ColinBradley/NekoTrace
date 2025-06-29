@@ -1,5 +1,7 @@
-*csproj.user
 /.vs
+
+*csproj.user
+*.pubxml.user
 
 [Bb]in/
 [Oo]bj/
