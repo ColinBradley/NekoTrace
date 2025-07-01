@@ -100,7 +100,7 @@ class TraceRenderer {
         const spansByRow: SpanData[][] = [];
         for (const span of this.spans) {
             let isInserted = false;
-            for (let rowIndex = 0; rowIndex < spansByRow.length; rowIndex++) {
+            for (let rowIndex = (span.parent?.rowIndex ?? -1) + 1; rowIndex < spansByRow.length; rowIndex++) {
                 const rowSpans = spansByRow[rowIndex];
                 if (rowSpans.some(s => s.endTimeMs > span.startTimeMs)) {
                     continue;
