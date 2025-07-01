@@ -1,9 +1,9 @@
 namespace InfoCat.Web.UI.Pages;
 
+using System.Collections.Immutable;
 using InfoCat.Web.Repositories;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
-using System.Collections.Immutable;
 
 public partial class Home : IDisposable
 {
@@ -22,7 +22,6 @@ public partial class Home : IDisposable
     private ElementReference? TraceFlameCanvas { get; set; }
 
     private IJSObjectReference? TraceModule { get; set; }
-
 
     private Trace? SelectedTrace =>
         this.SelectedTraceId is null
