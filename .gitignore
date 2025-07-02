@@ -1,4 +1,5 @@
 /.vs
+/Visual Studio 2022/
 
 *csproj.user
 *.pubxml.user

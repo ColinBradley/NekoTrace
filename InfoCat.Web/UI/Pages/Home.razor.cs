@@ -1,10 +1,10 @@
 namespace InfoCat.Web.UI.Pages;
 
+using System.Collections.Immutable;
 using InfoCat.Web.Repositories;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using Microsoft.JSInterop;
-using System.Collections.Immutable;
 
 public partial class Home : IDisposable
 {

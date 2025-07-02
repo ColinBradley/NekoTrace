@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 public sealed record Trace
 {
     private readonly ReaderWriterLockSlim mLock = new();
-    
+
     public required string Id { get; init; }
 
     public required TracesRepository Repository { get; init; }
@@ -25,9 +25,9 @@ public sealed record Trace
         mLock.EnterWriteLock();
 
         var insertIndex = this.Spans.FindIndex(s => s.StartTime >= span.StartTime);
-        
-        this.Spans = insertIndex >= 0 
-            ? this.Spans.Insert(insertIndex, span) 
+
+        this.Spans = insertIndex >= 0
+            ? this.Spans.Insert(insertIndex, span)
             : this.Spans.Add(span);
 
         if (string.IsNullOrEmpty(span.ParentSpanId))
@@ -36,13 +36,13 @@ public sealed record Trace
         }
 
         var durationChanged = false;
-        if (span.StartTime < Start)
+        if (span.StartTime < this.Start)
         {
             this.Start = span.StartTime;
             durationChanged = true;
         }
 
-        if (span.EndTime > End)
+        if (span.EndTime > this.End)
         {
             this.End = span.EndTime;
             durationChanged = true;

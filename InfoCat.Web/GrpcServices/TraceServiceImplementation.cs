@@ -27,13 +27,20 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
 
             foreach (var scopeSpan in resourceSpan.ScopeSpans)
             {
-                var scopeAttributes = ConvertAttributes(scopeSpan.Scope.Attributes).ToArray();
+                var scopeAttributes = ConvertAttributes(scopeSpan.Scope.Attributes)
+                    .Concat(
+                        [
+                            new("otel.library.name", scopeSpan.Scope.Name),
+                            new("otel.library.version", scopeSpan.Scope.Version),
+                        ]
+                    )
+                    .ToArray();
 
                 foreach (var span in scopeSpan.Spans)
                 {
                     mTraces
                         .GetOrAddTrace(span.TraceId)
-                        .AddSpan(ConvertSpan(span, [..resourceAttributes, ..scopeAttributes]));
+                        .AddSpan(ConvertSpan(span, [.. resourceAttributes, .. scopeAttributes]));
                 }
             }
         }
@@ -50,7 +57,10 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
         );
     }
 
-    private static SpanData ConvertSpan(OpenTelemetry.Proto.Trace.V1.Span span, IEnumerable<KeyValuePair<string, object>> extraAttributes)
+    private static SpanData ConvertSpan(
+        OpenTelemetry.Proto.Trace.V1.Span span,
+        IEnumerable<KeyValuePair<string, object?>> extraAttributes
+    )
     {
         return new SpanData()
         {
@@ -58,7 +68,7 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
             ParentSpanId = span.ParentSpanId.IsEmpty ? null : span.ParentSpanId.ToBase64(),
             Name = span.Name,
             Kind = span.Kind,
-            Attributes = new([.. ConvertAttributes(span.Attributes), ..extraAttributes]),
+            Attributes = new([.. ConvertAttributes(span.Attributes), .. extraAttributes]),
             StartTime = TimeFromUnixNano(span.StartTimeUnixNano),
             StartTimeMs = span.StartTimeUnixNano / 1_000_000.0,
             EndTime = TimeFromUnixNano(span.EndTimeUnixNano),
@@ -72,12 +82,14 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
                 {
                     Name = e.Name,
                     Time = TimeFromUnixNano(e.TimeUnixNano),
-                    Attributes = e.Attributes.ToDictionary(e => e.Key, e => e.Value),
+                    Attributes = new(ConvertAttributes(e.Attributes)),
                 }),
             ],
             Links =
             [
-                .. span.Links.Select(l => l.Attributes.ToDictionary(e => e.Key, e => ConvertAnyValue(e.Value))),
+                .. span.Links.Select(l =>
+                    l.Attributes.ToDictionary(e => e.Key, e => ConvertAnyValue(e.Value))
+                ),
             ],
         };
     }
@@ -85,23 +97,23 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
     private static DateTimeOffset TimeFromUnixNano(ulong time) =>
         DateTimeOffset.UnixEpoch.AddTicks(Convert.ToInt64(time / 100));
 
-    private static object ConvertAnyValue(AnyValue value)
+    private static object? ConvertAnyValue(AnyValue value)
     {
-        if (value.HasStringValue)
-            return value.StringValue;
-
-        if (value.HasBoolValue)
-            return value.BoolValue;
-
-        if (value.HasIntValue)
-            return value.IntValue;
-
-        if (value.HasDoubleValue)
-            return value.DoubleValue;
-
-        throw new Exception("Unknown content");
+        return value.ValueCase switch
+        {
+            AnyValue.ValueOneofCase.None => null,
+            AnyValue.ValueOneofCase.StringValue => value.StringValue,
+            AnyValue.ValueOneofCase.BoolValue => value.BoolValue,
+            AnyValue.ValueOneofCase.IntValue => value.IntValue,
+            AnyValue.ValueOneofCase.DoubleValue => value.DoubleValue,
+            AnyValue.ValueOneofCase.ArrayValue => value.ArrayValue,
+            AnyValue.ValueOneofCase.KvlistValue => value.KvlistValue,
+            AnyValue.ValueOneofCase.BytesValue => value.BytesValue,
+            _ => throw new Exception("Unknown content"),
+        };
     }
 
-    private static IEnumerable<KeyValuePair<string, object>> ConvertAttributes(RepeatedField<KeyValue> attributes) =>
-        attributes.Select(e => new KeyValuePair<string, object>(e.Key, ConvertAnyValue(e.Value)));
+    private static IEnumerable<KeyValuePair<string, object?>> ConvertAttributes(
+        RepeatedField<KeyValue> attributes
+    ) => attributes.Select(e => new KeyValuePair<string, object?>(e.Key, ConvertAnyValue(e.Value)));
 }
