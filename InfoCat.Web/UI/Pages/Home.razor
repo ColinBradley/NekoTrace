@@ -10,28 +10,81 @@
     <h1>Traces</h1>
 
     <div class="traces">
-        <QuickGrid Items="this.TracesRepo.Traces"
-                   Virtualize="true">
+        <QuickGrid Items="this.FilteredTraces"
+                   Virtualize="true"
+                   Theme="dark"
+                   ItemKey="t => t.Id"
+                   ItemSize="28">
 
-            <PropertyColumn Title="Start Time"
-                            Property="@(t => t.Start)"
-                            Sortable="true" 
+            <TemplateColumn Title="Start Time"
+                            SortBy="this.TraceStartGridSort"
+                            Sortable="true"
                             IsDefaultSortColumn="true"
-                            InitialSortDirection="SortDirection.Descending"/>
+                            InitialSortDirection="SortDirection.Descending">
+                <div>
+                    @context.Start.ToString("HH:mm:ss.fff")
+                </div>
+            </TemplateColumn>
 
-            <TemplateColumn Title="Name">
-                <NavLink href="@($"traces/{Uri.EscapeDataString(context.Id)}")">
-                    @(context.RootSpan?.Name ?? context.Id)
-                </NavLink>
+            <TemplateColumn Title="Name" Align="Align.Right">
+                <ColumnOptions>
+                    <div class="trace-names">
+                        @foreach (var name in this.TraceNames)
+                        {
+                            <label>
+                                <input type="checkbox" @onchange="() => this.ToggleTraceNameFilter(name)" checked="@(!mIgnoredTraceNames.Contains(name))" />
+                                <span>
+                                    @name
+                                </span>
+                            </label>
+                        }
+                    </div>
+                </ColumnOptions>
+
+                <ChildContent>
+                    <NavLink href="@($"traces/{Uri.EscapeDataString(context.Id)}")">
+                        @(context.RootSpan?.Name ?? context.Id)
+                    </NavLink>
+                </ChildContent>
             </TemplateColumn>
 
             <PropertyColumn Title="Spans"
                             Property="@(t => t.Spans.Count)"
-                            Sortable="true" />
+                            Sortable="true"
+                            Align="Align.Right">
+                <ColumnOptions>
+                    <div class="inputs">
+                        <label>
+                            <span>
+                                Min
+                            </span>
+                            <input type="number" @bind="this.SpansMinimum" />
+                        </label>
+                    </div>
+                </ColumnOptions>
+            </PropertyColumn>
 
             <PropertyColumn Title="Duration"
                             Property="@(t => t.Duration)"
-                            Sortable="true" />
+                            Sortable="true"
+                            Align="Align.Right">
+                <ColumnOptions>
+                    <div class="inputs">
+                        <label>
+                            <span>
+                                Min (seconds)
+                            </span>
+                            <input type="number" @bind="this.DurationMinimum" />
+                        </label>
+                        <label>
+                            <span>
+                                Max (seconds)
+                            </span>
+                            <input type="number" @bind="this.DurationMaximum" />
+                        </label>
+                    </div>
+                </ColumnOptions>
+            </PropertyColumn>
         </QuickGrid>
     </div>
 

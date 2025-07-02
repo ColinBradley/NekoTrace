@@ -1,5 +1,5 @@
 :root {
-	color-scheme: dark light;
+	color-scheme: dark;
 	font-family: sans-serif;
 }
 
@@ -18,8 +18,58 @@ body {
 	padding: 0;
 }
 
+a {
+	color: #758da3;
+}
+
+a.active {
+	color: #aecbe6;
+}
+
 h1:focus {
 	outline: none;
+}
+
+dl {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: .5em 1em;
+	padding: 1em;
+}
+
+dt {
+	font-weight: bold;
+}
+
+dd {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+label {
+	display: flex;
+	flex-direction: column;
+	gap: .1em;
+	align-items: start;
+}
+
+button {
+	font-size: 1em;
+}
+
+input {
+	padding: .2em;
+}
+
+.inputs {
+	display: flex;
+	flex-direction: column;
+	gap: 1em;
+}
+
+input[type=checkbox] {
+	zoom: 1.3;
 }
 
 .valid.modified:not([type=checkbox]) {

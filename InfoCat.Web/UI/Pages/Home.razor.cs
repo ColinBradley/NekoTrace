@@ -2,6 +2,7 @@ namespace InfoCat.Web.UI.Pages;
 
 using InfoCat.Web.Repositories;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.QuickGrid;
 using Microsoft.JSInterop;
 using System.Collections.Immutable;
 
@@ -9,6 +10,8 @@ public partial class Home : IDisposable
 {
     private ImmutableList<SpanData>? mClientSpans;
     private DotNetObjectReference<Home>? mSelfReference;
+
+    private readonly HashSet<string> mIgnoredTraceNames = [];
 
     [Inject]
     public required TracesRepository TracesRepo { get; set; }
@@ -23,13 +26,33 @@ public partial class Home : IDisposable
 
     private IJSObjectReference? TraceModule { get; set; }
 
-
     private Trace? SelectedTrace =>
         this.SelectedTraceId is null
             ? null
             : this.TracesRepo.TryGetTrace(this.SelectedTraceId);
 
     private SpanData? SelectedSpan { get; set; }
+
+    private int? SpansMinimum { get; set; }
+
+    private double? DurationMinimum { get; set; }
+
+    private double? DurationMaximum { get; set; }
+
+    private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByDescending(t => t.Start);
+
+    private IEnumerable<string> TraceNames => 
+        this.FilteredTraces
+            .Where(t => t.RootSpan != null)
+            .Select(t => t.RootSpan!.Name)
+            .Distinct();
+
+    private IQueryable<Trace> FilteredTraces => 
+        this.TracesRepo.Traces
+            .Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
+            .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
+            .Where(t => (this.DurationMaximum ?? double.MaxValue) >= t.Duration.TotalSeconds)
+            .Where(t => t.RootSpan == null || !mIgnoredTraceNames.Contains(t.RootSpan!.Name));
 
     protected override void OnInitialized()
     {
@@ -70,6 +93,14 @@ public partial class Home : IDisposable
     private void TracesRepo_TracesChanged(string traceId)
     {
         this.InvokeAsync(this.StateHasChanged);
+    }
+
+    private void ToggleTraceNameFilter(string traceName)
+    {
+        if (!mIgnoredTraceNames.Add(traceName))
+        {
+            mIgnoredTraceNames.Remove(traceName);
+        }
     }
 
     [JSInvokable]

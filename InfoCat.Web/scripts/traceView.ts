@@ -13,12 +13,11 @@ export function initialize(
 }
 
 const FONT_SIZE = 16;
-const SPAN_INNER_PADDING = FONT_SIZE * 0.2;
+const SPAN_INNER_PADDING = Math.round(FONT_SIZE * 0.3);
 const SPAN_HEIGHT_INNER = FONT_SIZE + (SPAN_INNER_PADDING * 2);
-const SPAN_BORDER_WIDTH = 1;
+const SPAN_BORDER_WIDTH = 2;
 const SPAN_HEIGHT_TOTAL = SPAN_HEIGHT_INNER + (SPAN_BORDER_WIDTH * 2);
-const SPAN_ROW_GAP = FONT_SIZE * 0.1;
-const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL + SPAN_ROW_GAP;
+const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL;
 
 class TraceRenderer {
 
@@ -37,6 +36,8 @@ class TraceRenderer {
     private pointerX = 0;
     private pointerY = 0;
 
+    private readonly selectedSpansParents = new Set<SpanItem>();
+    private readonly hotSpansParents = new Set<SpanItem>();
     private hotSpan?: SpanItem;
     private selectedSpan?: SpanItem;
 
@@ -145,10 +146,13 @@ class TraceRenderer {
 
     private readonly canvasElement_pointerdown = (e: PointerEvent) => {
         if (this.hotSpan === undefined) {
+
             this.canvasElement.setPointerCapture(e.pointerId);
             this.isPanning = true;
         } else {
             this.selectedSpan = this.hotSpan;
+            populateParents(this.selectedSpansParents, this.selectedSpan);
+
             this.render();
         }
     }
@@ -166,6 +170,7 @@ class TraceRenderer {
         this.top = 0;
         this.left = 0;
         this.selectedSpan = undefined;
+        this.selectedSpansParents.clear();
 
         this.updateSpanLocations();
 
@@ -176,6 +181,7 @@ class TraceRenderer {
 
     private readonly canvasElement_pointerout = (e: PointerEvent) => {
         this.hotSpan = undefined;
+        this.hotSpansParents.clear();
         this.pointerX = -1;
         this.pointerY = -1;
 
@@ -187,11 +193,15 @@ class TraceRenderer {
 
         if (e.altKey) {
             // Zoom
+            const scrolledContentPosition = (this.pointerX - this.left) / (this.canvasElement.width * this.zoomRatio);
+
             if (e.deltaY > 0) {
                 this.zoomRatio /= 1.2;
             } else if (e.deltaY < 0) {
                 this.zoomRatio *= 1.2;
             }
+
+            this.left = this.pointerX - (scrolledContentPosition * (this.canvasElement.width * this.zoomRatio));
 
             this.updateSpanLocations();
         } else {
@@ -225,6 +235,12 @@ class TraceRenderer {
             && (this.top + s.absolutePixelPositionY + SPAN_HEIGHT_TOTAL) > this.pointerY
         );
 
+        if (this.hotSpan === undefined) {
+            this.hotSpansParents.clear();
+        } else {
+            populateParents(this.hotSpansParents, this.hotSpan);
+        }
+
         const newSpanId = this.hotSpan?.id ?? this.selectedSpan?.id;
 
         if (this.lastSentSelectedSpanId != newSpanId && this.selectionChangedCallback !== undefined) {
@@ -243,26 +259,37 @@ class TraceRenderer {
             const isHot = span === this.hotSpan;
             const isSelected = span === this.selectedSpan;
 
-            this.canvasContext.fillStyle = isHot
-                ? isSelected
-                    ? "purple"
-                    : "red"
-                : isSelected
-                    ? "blue"
-                    : "black";
+            this.canvasContext.fillStyle =
+                isSelected
+                    ? "#3399cc"
+                    : this.hotSpansParents.has(span)
+                        ? "#11374b"
+                        : "#1f5f7f";
+
             this.canvasContext.fillRect(
-                this.left + span.absolutePixelPositionX,
-                this.top + span.absolutePixelPositionY,
-                span.pixelWidth,
-                SPAN_HEIGHT_INNER
+                this.left + span.absolutePixelPositionX + SPAN_BORDER_WIDTH - 1,
+                this.top + span.absolutePixelPositionY + SPAN_BORDER_WIDTH - 1,
+                span.pixelWidth - (SPAN_BORDER_WIDTH * 2) + 2,
+                SPAN_HEIGHT_INNER + 2
             );
+
+            if (isHot) {
+                this.canvasContext.strokeStyle = isHot ? "#dd8451" : "#aa653e";
+                this.canvasContext.lineWidth = SPAN_BORDER_WIDTH;
+                this.canvasContext.strokeRect(
+                    this.left + span.absolutePixelPositionX,
+                    this.top + span.absolutePixelPositionY,
+                    span.pixelWidth,
+                    SPAN_HEIGHT_TOTAL
+                );
+            }
 
             this.canvasContext.fillStyle = "white";
             this.canvasContext.fillText(
                 span.name,
-                this.left + Math.round(span.absolutePixelPositionX + SPAN_INNER_PADDING),
-                this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL / 2)),
-                span.pixelWidth
+                this.left + Math.round(span.absolutePixelPositionX + SPAN_INNER_PADDING + SPAN_BORDER_WIDTH),
+                this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL / 2)) + 2,
+                span.pixelWidth - (SPAN_BORDER_WIDTH * 2) - (SPAN_INNER_PADDING * 2)
             );
         }
     }
@@ -275,6 +302,16 @@ class TraceRenderer {
             span.absolutePixelPositionX = (span.startTimeMs - this.startMs) * msToPixels;
             span.pixelWidth = (span.endTimeMs - span.startTimeMs) * msToPixels;
         }
+    }
+}
+
+function populateParents(parents: Set<SpanItem>, span: SpanItem): void {
+    parents.clear();
+
+    let current = span.parent;
+    while (current != undefined) {
+        parents.add(current);
+        current = current.parent;
     }
 }
 
