@@ -41,11 +41,12 @@ public partial class Home : IDisposable
 
     private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByDescending(t => t.Start);
 
-    private IEnumerable<string> TraceNames => 
-        this.FilteredTraces
+    private IEnumerable<string> TraceNames =>
+        this.TracesRepo.Traces
             .Where(t => t.RootSpan != null)
             .Select(t => t.RootSpan!.Name)
-            .Distinct();
+            .Distinct()
+            .Order();
 
     private IQueryable<Trace> FilteredTraces => 
         this.TracesRepo.Traces
