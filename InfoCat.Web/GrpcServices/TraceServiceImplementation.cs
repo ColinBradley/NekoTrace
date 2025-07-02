@@ -27,7 +27,14 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
 
             foreach (var scopeSpan in resourceSpan.ScopeSpans)
             {
-                var scopeAttributes = ConvertAttributes(scopeSpan.Scope.Attributes).ToArray();
+                var scopeAttributes = ConvertAttributes(scopeSpan.Scope.Attributes)
+                    .Concat(
+                        [
+                            new("otel.library.name", scopeSpan.Scope.Name),
+                            new("otel.library.version", scopeSpan.Scope.Version),
+                        ]
+                    )
+                    .ToArray();
 
                 foreach (var span in scopeSpan.Spans)
                 {
@@ -50,7 +57,10 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
         );
     }
 
-    private static SpanData ConvertSpan(OpenTelemetry.Proto.Trace.V1.Span span, IEnumerable<KeyValuePair<string, object?>> extraAttributes)
+    private static SpanData ConvertSpan(
+        OpenTelemetry.Proto.Trace.V1.Span span,
+        IEnumerable<KeyValuePair<string, object?>> extraAttributes
+    )
     {
         return new SpanData()
         {
@@ -77,7 +87,9 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
             ],
             Links =
             [
-                .. span.Links.Select(l => l.Attributes.ToDictionary(e => e.Key, e => ConvertAnyValue(e.Value))),
+                .. span.Links.Select(l =>
+                    l.Attributes.ToDictionary(e => e.Key, e => ConvertAnyValue(e.Value))
+                ),
             ],
         };
     }
@@ -97,10 +109,11 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
             AnyValue.ValueOneofCase.ArrayValue => value.ArrayValue,
             AnyValue.ValueOneofCase.KvlistValue => value.KvlistValue,
             AnyValue.ValueOneofCase.BytesValue => value.BytesValue,
-            _ => throw new Exception("Unknown content")
+            _ => throw new Exception("Unknown content"),
         };
     }
 
-    private static IEnumerable<KeyValuePair<string, object?>> ConvertAttributes(RepeatedField<KeyValue> attributes) =>
-        attributes.Select(e => new KeyValuePair<string, object?>(e.Key, ConvertAnyValue(e.Value)));
+    private static IEnumerable<KeyValuePair<string, object?>> ConvertAttributes(
+        RepeatedField<KeyValue> attributes
+    ) => attributes.Select(e => new KeyValuePair<string, object?>(e.Key, ConvertAnyValue(e.Value)));
 }
