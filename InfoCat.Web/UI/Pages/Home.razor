@@ -94,10 +94,10 @@
         {
             <div class="trace">
                 <canvas @ref="this.TraceFlameCanvas"
-                        width="600"
-                        height="400" />
+                        width="1000"
+                        height="700" />
 
-                <div style="overflow:auto; width: 600px;">
+                <div style="overflow:auto; width: 1000px;">
                     @if (this.SelectedSpan is not null)
                     {
                         <dl class="span-info">
@@ -112,6 +112,10 @@
                             <dt>Kind</dt>
                             <dd class="kind">
                                 @this.SelectedSpan.Kind
+                            </dd>
+                            <dt>Parent</dt>
+                            <dd class="parent">
+                                @(selectedTrace.Spans.FirstOrDefault(s => s.Id == this.SelectedSpan.ParentSpanId)?.Name)
                             </dd>
                             <dt>Message</dt>
                             <dd class="status-message">

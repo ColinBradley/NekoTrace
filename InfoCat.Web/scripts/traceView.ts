@@ -23,6 +23,8 @@ class TraceRenderer {
 
     private readonly canvasContext: CanvasRenderingContext2D;
     private readonly resizeObserver: ResizeObserver;
+    private readonly characterPixelWidth: number;
+
     private spans: SpanItem[] = [];
 
     private startMs = 0;
@@ -56,6 +58,11 @@ class TraceRenderer {
         canvasElement.addEventListener("wheel", this.canvasElement_wheel);
         this.resizeObserver = new ResizeObserver(this.canvasElement_resized);
         this.resizeObserver.observe(canvasElement);
+
+        this.canvasContext.font = `${FONT_SIZE}px monospace`;
+        this.canvasContext.textBaseline = "middle";
+
+        this.characterPixelWidth = this.canvasContext.measureText('L').width;
     }
 
     public setSpans(spans: SpanData[]) {
@@ -145,11 +152,10 @@ class TraceRenderer {
     }
 
     private readonly canvasElement_pointerdown = (e: PointerEvent) => {
-        if (this.hotSpan === undefined) {
+        this.canvasElement.setPointerCapture(e.pointerId);
+        this.isPanning = true;
 
-            this.canvasElement.setPointerCapture(e.pointerId);
-            this.isPanning = true;
-        } else {
+        if (this.hotSpan !== undefined) {
             this.selectedSpan = this.hotSpan;
             populateParents(this.selectedSpansParents, this.selectedSpan);
 
@@ -192,6 +198,14 @@ class TraceRenderer {
         e.preventDefault();
 
         if (e.altKey) {
+            // Pan
+            const deltaX = e.shiftKey ? e.deltaY : e.deltaX;
+            const deltaY = e.shiftKey ? e.deltaX : e.deltaY;
+
+            this.left += Math.round(deltaX);
+            this.top -= Math.round(deltaY);
+
+        } else {
             // Zoom
             const scrolledContentPosition = (this.pointerX - this.left) / (this.canvasElement.width * this.zoomRatio);
 
@@ -203,19 +217,7 @@ class TraceRenderer {
 
             this.left = this.pointerX - (scrolledContentPosition * (this.canvasElement.width * this.zoomRatio));
 
-            this.updateSpanLocations();
-        } else {
-            // Pan
-            const deltaX = e.shiftKey ? e.deltaY : e.deltaX;
-            const deltaY = e.shiftKey ? e.deltaX : e.deltaY;
-
-            if (deltaY > 0) {
-                this.top -= Math.round(SPAN_HEIGHT_TOTAL / 2);
-            } else if (deltaY < 0) {
-                this.top += Math.round(SPAN_HEIGHT_TOTAL / 2);
-            }
-
-            this.left += Math.round(deltaX / 2);
+            this.updateSpanLocations();            
         }
 
         this.render();
@@ -252,17 +254,18 @@ class TraceRenderer {
     private render() {
         this.canvasContext.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 
-        this.canvasContext.font = `${FONT_SIZE}px sans-serif`;
-        this.canvasContext.textBaseline = "middle";
-
         for (const span of this.spans) {
             const isHot = span === this.hotSpan;
             const isSelected = span === this.selectedSpan;
+            const isParent =
+                this.hotSpan === undefined
+                    ? this.selectedSpansParents.has(span)
+                    : this.hotSpansParents.has(span);
 
             this.canvasContext.fillStyle =
                 isSelected
                     ? "#3399cc"
-                    : this.hotSpansParents.has(span)
+                    : isParent
                         ? "#11374b"
                         : "#1f5f7f";
 
@@ -284,12 +287,13 @@ class TraceRenderer {
                 );
             }
 
+            const textWidth = span.pixelWidth - (SPAN_BORDER_WIDTH * 2) - (SPAN_INNER_PADDING * 2);
             this.canvasContext.fillStyle = "white";
             this.canvasContext.fillText(
-                span.name,
+                this.fitString(span.name, textWidth),
                 this.left + Math.round(span.absolutePixelPositionX + SPAN_INNER_PADDING + SPAN_BORDER_WIDTH),
                 this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL / 2)) + 2,
-                span.pixelWidth - (SPAN_BORDER_WIDTH * 2) - (SPAN_INNER_PADDING * 2)
+                textWidth
             );
         }
     }
@@ -302,6 +306,20 @@ class TraceRenderer {
             span.absolutePixelPositionX = (span.startTimeMs - this.startMs) * msToPixels;
             span.pixelWidth = (span.endTimeMs - span.startTimeMs) * msToPixels;
         }
+    }
+
+    private fitString(value: string, maxPixelWidth: number) {
+        const maxCharacters = Math.round(maxPixelWidth / this.characterPixelWidth);
+
+        if (maxCharacters <= 1) {
+            return '';
+        }
+
+        if (value.length > maxCharacters) {
+            return value.substring(0, maxCharacters) + '…';
+        }
+
+        return value;
     }
 }
 
