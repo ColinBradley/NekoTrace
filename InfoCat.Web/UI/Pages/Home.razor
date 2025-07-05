@@ -6,7 +6,28 @@
 
 <div class="page">
 
-    <h1>Traces</h1>
+    <div style="display: flex; gap: 1em; grid-column: 1/3; padding: 1em;">
+        <h1>
+            Traces
+        </h1>
+        <div>
+            <label>
+                <span>
+                    Trace Color Selector
+                </span>
+                <input type="text"
+                       value="@this.SpanColorSelector"
+                       @onchange="this.SpanColorSelector_Change"
+                       list="common-span-attributes-items" />
+                <datalist id="common-span-attributes-items">
+                    @foreach (var spanAttributeKey in this.RootSpanAttributeKeys)
+                    {
+                        <option>@spanAttributeKey</option>
+                    }
+                </datalist>
+            </label>
+        </div>
+    </div>
 
     <div class="traces">
         <QuickGrid Items="this.FilteredTraces"

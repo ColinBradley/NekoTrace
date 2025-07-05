@@ -1,6 +1,7 @@
 namespace InfoCat.Web.UI.Pages;
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using InfoCat.Web.Repositories;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
@@ -48,6 +49,9 @@ public partial class Home : IDisposable
     [SupplyParameterFromQuery]
     private bool? GroupSpans { get; set; }
 
+    [SupplyParameterFromQuery]
+    private string? SpanColorSelector { get; set; }
+
     private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByAscending(t => t.Start);
 
     private IEnumerable<string> TraceNames =>
@@ -63,6 +67,15 @@ public partial class Home : IDisposable
             .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
             .Where(t => (this.DurationMaximum ?? double.MaxValue) >= t.Duration.TotalSeconds)
             .Where(t => t.RootSpan == null || !mIgnoredTraceNames.Contains(t.RootSpan!.Name));
+
+    private IEnumerable<string> RootSpanAttributeKeys =>
+        this.TracesRepo.Traces
+            .SelectMany(t => 
+                t.RootSpan == null
+                    ? Array.Empty<string>()
+                    : t.RootSpan.Attributes.Keys.ToArray()
+            )
+            .Distinct(StringComparer.OrdinalIgnoreCase);
 
     protected override void OnInitialized()
     {
@@ -95,6 +108,7 @@ public partial class Home : IDisposable
             "initialize",
             this.TraceFlameCanvas,
             mClientSpans ?? [],
+            this.SpanColorSelector,
             mSelfReference,
             nameof(SetSelectedSpanId)
         );
@@ -152,6 +166,13 @@ public partial class Home : IDisposable
         this.GroupSpans = (e.Value as bool? ?? false) ? null : false;
 
         this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.GroupSpans), this.GroupSpans), replace: true);
+    }
+
+    private void SpanColorSelector_Change(ChangeEventArgs e)
+    {
+        this.SpanColorSelector = e.Value as string;
+
+        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.SpanColorSelector), this.SpanColorSelector), replace: true);
     }
 
     private void ToggleTraceNameFilter(string traceName)

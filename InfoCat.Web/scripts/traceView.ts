@@ -3,12 +3,13 @@ import type { SpanData } from "./types.js";
 export function initialize(
     targetCanvas: HTMLCanvasElement & { traceRenderer: TraceRenderer },
     spans: SpanData[],
+    spanColorSelector: string,
     callbackObject: DotNetObjectReference,
     callbackName: string
 ) {
     const renderer = targetCanvas.traceRenderer ??= new TraceRenderer(targetCanvas);
 
-    renderer.setSpans(spans);
+    renderer.setSpans(spans, spanColorSelector);
     renderer.setSelectionChangedCallback(spanId => callbackObject.invokeMethodAsync(callbackName, spanId));
 }
 
@@ -18,6 +19,19 @@ const SPAN_HEIGHT_INNER = FONT_SIZE + (SPAN_INNER_PADDING * 2);
 const SPAN_BORDER_WIDTH = 2;
 const SPAN_HEIGHT_TOTAL = SPAN_HEIGHT_INNER + (SPAN_BORDER_WIDTH * 2);
 const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL;
+
+const pleasingColors = [
+    "#2A9D8F",
+    "#A8D676",
+    "#F4A261",
+    "#E9C46A",
+    "#00BFFF",
+    "#4C4C9D",
+    "#9B5DE5",
+    "#457B9D",
+    "#D946EF",
+    "#FF6B6B"
+];
 
 class TraceRenderer {
 
@@ -72,7 +86,7 @@ class TraceRenderer {
         document.addEventListener("change", this.document_change);
     }
 
-    public setSpans(spans: SpanData[]) {
+    public setSpans(spans: SpanData[], spanColorSelector: string) {
         this.spans = spans.map(s => (
             {
                 ...s,
@@ -80,7 +94,8 @@ class TraceRenderer {
                 rowIndex: 0,
                 absolutePixelPositionX: 0,
                 absolutePixelPositionY: 0,
-                pixelWidth: 0
+                pixelWidth: 0,
+                color: "red"
             }
         ));
 
@@ -88,6 +103,8 @@ class TraceRenderer {
 
         let startMs = Number.MAX_VALUE;
         let endMs = Number.MIN_VALUE;
+        let spanColorIndex = 0;
+        const spanColorValues = new Map<unknown, string>();
 
         for (const span of this.spans) {
             if (span.startTimeMs < startMs) {
@@ -97,6 +114,16 @@ class TraceRenderer {
             if (span.endTimeMs > endMs) {
                 endMs = span.endTimeMs;
             }
+
+            const spanColorValue = span.attributes[spanColorSelector];
+            let spanColor = spanColorValues.get(spanColorValue);
+            if (spanColor === undefined) {
+                spanColor = pleasingColors[spanColorIndex] ?? "black";
+                spanColorValues.set(spanColorValue, spanColor);
+                spanColorIndex++;
+            }
+
+            span.color = spanColor;
 
             if (span.parentSpanId === undefined) {
                 continue;
@@ -299,11 +326,9 @@ class TraceRenderer {
                     : this.hotSpansParents.has(span);
 
             this.canvasContext.fillStyle =
-                isSelected
-                    ? "#3399cc"
-                    : isParent
-                        ? "#11374b"
-                        : "#1f5f7f";
+                 isParent
+                    ? "#11374b"
+                    : span.color;
 
             this.canvasContext.fillRect(
                 this.left + span.absolutePixelPositionX + SPAN_BORDER_WIDTH - 1,
@@ -312,8 +337,12 @@ class TraceRenderer {
                 SPAN_HEIGHT_INNER + 2
             );
 
-            if (isHot) {
-                this.canvasContext.strokeStyle = isHot ? "#dd8451" : "#aa653e";
+            if (isHot || isSelected) {
+                this.canvasContext.strokeStyle =
+                    isSelected || isHot
+                            ? "#dd8451"
+                            : "#aa653e";
+
                 this.canvasContext.lineWidth = SPAN_BORDER_WIDTH;
                 this.canvasContext.strokeRect(
                     this.left + span.absolutePixelPositionX,
@@ -352,7 +381,7 @@ class TraceRenderer {
         }
 
         if (value.length > maxCharacters) {
-            return value.substring(0, maxCharacters) + '…';
+            return value.substring(0, maxCharacters) + 'ï¿½';
         }
 
         return value;
@@ -380,6 +409,7 @@ function populateParents(parents: Set<SpanItem>, span: SpanItem): void {
 interface SpanItem extends SpanData {
     parent?: SpanItem;
     readonly children: SpanItem[];
+    color: string;
     rowIndex: number;
 
     absolutePixelPositionX: number;
