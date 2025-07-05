@@ -12,8 +12,8 @@ export function initialize(
     renderer.setSelectionChangedCallback(spanId => callbackObject.invokeMethodAsync(callbackName, spanId));
 }
 
-const FONT_SIZE = 16;
-const SPAN_INNER_PADDING = Math.round(FONT_SIZE * 0.3);
+const FONT_SIZE = 14;
+const SPAN_INNER_PADDING = Math.round(FONT_SIZE * 0.2);
 const SPAN_HEIGHT_INNER = FONT_SIZE + (SPAN_INNER_PADDING * 2);
 const SPAN_BORDER_WIDTH = 2;
 const SPAN_HEIGHT_TOTAL = SPAN_HEIGHT_INNER + (SPAN_BORDER_WIDTH * 2);
@@ -44,6 +44,9 @@ class TraceRenderer {
     private selectedSpan?: SpanItem;
 
     private selectionChangedCallback?: (spanId?: string) => Promise<void>;
+    private lastSentSelectedSpanId?: string;
+
+    private groupSpans = true;
 
     public constructor(
         private readonly canvasElement: HTMLCanvasElement
@@ -63,6 +66,10 @@ class TraceRenderer {
         this.canvasContext.textBaseline = "middle";
 
         this.characterPixelWidth = this.canvasContext.measureText('L').width;
+
+        this.loadOptions();
+
+        document.addEventListener("change", this.document_change);
     }
 
     public setSpans(spans: SpanData[]) {
@@ -98,39 +105,14 @@ class TraceRenderer {
             span.parent = spansById.get(span.parentSpanId);
 
             if (span.parent !== undefined) {
-                span.children.push(span);
+                span.parent.children.push(span);
             }
         }
 
         this.startMs = startMs;
         this.durationMs = endMs - startMs;
 
-        const spansByRow: SpanData[][] = [];
-        for (const span of this.spans) {
-            let isInserted = false;
-            for (let rowIndex = (span.parent?.rowIndex ?? -1) + 1; rowIndex < spansByRow.length; rowIndex++) {
-                const rowSpans = spansByRow[rowIndex];
-                if (rowSpans.some(s => s.endTimeMs > span.startTimeMs)) {
-                    continue;
-                }
-
-                span.rowIndex = rowIndex;
-                rowSpans.push(span);
-                isInserted = true;
-                break;
-            }
-
-            if (!isInserted) {
-                span.rowIndex = spansByRow.length;
-                spansByRow.push([span]);
-            }
-
-            span.absolutePixelPositionY = SPAN_ROW_OFFSET * span.rowIndex;
-        }
-
-        this.updateSpanLocations();
-
-        this.render();
+        this.arrangeSpans();
     }
 
     public setSelectionChangedCallback(callback: (spanId?: string) => Promise<void>) {
@@ -217,7 +199,7 @@ class TraceRenderer {
 
             this.left = this.pointerX - (scrolledContentPosition * (this.canvasElement.width * this.zoomRatio));
 
-            this.updateSpanLocations();            
+            this.updateSpanLocations();
         }
 
         this.render();
@@ -228,7 +210,20 @@ class TraceRenderer {
         this.render();
     }
 
-    private lastSentSelectedSpanId?: string;
+    private readonly document_change = () => {
+        // Wait for the URL to update
+        setTimeout(() => {
+            this.loadOptions();
+            this.arrangeSpans();
+            this.render();
+        }, 10);
+    }
+
+    private loadOptions() {
+        const searchParams = new URL(document.URL).searchParams;
+
+        this.groupSpans = searchParams.get("GroupSpans")?.toLowerCase() !== "false";
+    }
 
     private setHotSpan() {
         this.hotSpan = this.spans.find(s => (this.left + s.absolutePixelPositionX) < this.pointerX
@@ -249,6 +244,47 @@ class TraceRenderer {
             this.lastSentSelectedSpanId = newSpanId;
             void this.selectionChangedCallback(newSpanId);
         }
+    }
+
+    private arrangeSpans() {
+        this.spans.sort((a, b) => a.startTimeMs - b.startTimeMs);
+
+        if (this.groupSpans) {
+            // TODO: This could be better - preventing siblings entering each other's children space?
+            const newSpans = this.spans
+                .filter(s => s.parent === undefined)
+                .map(s => [...getSpansDepthFirst(s)])
+                .flat();
+
+            this.spans = newSpans;
+        }
+
+        const spansByRow: SpanItem[][] = [];
+        for (const span of this.spans) {
+            let isInserted = false;
+            for (let rowIndex = (span.parent?.rowIndex ?? -1) + 1; rowIndex < spansByRow.length; rowIndex++) {
+                const rowSpans = spansByRow[rowIndex];
+                if (rowSpans.some(s => s.endTimeMs > span.startTimeMs)) {
+                    continue;
+                }
+
+                span.rowIndex = rowIndex;
+                rowSpans.push(span);
+                isInserted = true;
+                break;
+            }
+
+            if (!isInserted) {
+                span.rowIndex = spansByRow.length;
+                spansByRow.push([span]);
+            }
+
+            span.absolutePixelPositionY = SPAN_ROW_OFFSET * span.rowIndex;
+        }
+
+        this.updateSpanLocations();
+
+        this.render();
     }
 
     private render() {
@@ -320,6 +356,14 @@ class TraceRenderer {
         }
 
         return value;
+    }
+}
+
+function* getSpansDepthFirst(span: SpanItem): Generator<SpanItem, void, unknown> {
+    yield span;
+
+    for (const child of span.children) {
+        yield* getSpansDepthFirst(child);
     }
 }
 

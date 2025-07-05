@@ -1,5 +1,4 @@
 ﻿@page "/"
-@page "/traces/{SelectedTraceId}"
 
 @using Microsoft.AspNetCore.Components.QuickGrid
 
@@ -42,7 +41,7 @@
                 </ColumnOptions>
 
                 <ChildContent>
-                    <NavLink href="@($"traces/{Uri.EscapeDataString(context.Id)}")">
+                    <NavLink href="@this.Navigation.GetUriWithQueryParameter("TraceId", context.Id)">
                         @(context.RootSpan?.Name ?? context.Id)
                     </NavLink>
                 </ChildContent>
@@ -58,7 +57,10 @@
                             <span>
                                 Min
                             </span>
-                            <input type="number" @bind="this.SpansMinimum" />
+                            <input type="number"
+                                   value="@this.SpansMinimum"
+                                   min="2"
+                                   @onchange="this.SpansMinimum_Change" />
                         </label>
                     </div>
                 </ColumnOptions>
@@ -74,13 +76,21 @@
                             <span>
                                 Min (seconds)
                             </span>
-                            <input type="number" @bind="this.DurationMinimum" />
+                            <input type="number"
+                                   value="@this.DurationMinimum"
+                                   min="0"
+                                   step="0.01"
+                                   @onchange="this.DurationMinimum_Change" />
                         </label>
                         <label>
                             <span>
                                 Max (seconds)
                             </span>
-                            <input type="number" @bind="this.DurationMaximum" />
+                            <input type="number"
+                                   value="@this.DurationMaximum"
+                                   min="0.0001"
+                                   step="0.1"
+                                   @onchange="this.DurationMaximum_Change" />
                         </label>
                     </div>
                 </ColumnOptions>
@@ -93,6 +103,13 @@
         if (selectedTrace is not null)
         {
             <div class="trace">
+                <label class="inline">
+                    <input type="checkbox" checked="@(this.GroupSpans ?? true)" @onchange="this.GroupSpans_Change" />
+                    <span>
+                        Group Spans
+                    </span>
+                </label>
+
                 <canvas @ref="this.TraceFlameCanvas"
                         width="1000"
                         height="700" />
@@ -104,6 +121,10 @@
                             <dt>Name</dt>
                             <dd class="name">
                                 @this.SelectedSpan.Name
+                            </dd>
+                            <dt>Start</dt>
+                            <dd class="duration">
+                                @(this.SelectedSpan.StartTime - selectedTrace.Start)
                             </dd>
                             <dt>Duration</dt>
                             <dd class="duration">

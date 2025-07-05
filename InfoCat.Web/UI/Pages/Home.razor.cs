@@ -19,27 +19,36 @@ public partial class Home : IDisposable
     [Inject]
     public required IJSRuntime JSRuntime { get; set; }
 
-    [Parameter]
-    public string? SelectedTraceId { get; set; }
+    [Inject]
+    public required NavigationManager Navigation { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? TraceId { get; set; }
 
     private ElementReference? TraceFlameCanvas { get; set; }
 
     private IJSObjectReference? TraceModule { get; set; }
 
     private Trace? SelectedTrace =>
-        this.SelectedTraceId is null
+        this.TraceId is null
             ? null
-            : this.TracesRepo.TryGetTrace(this.SelectedTraceId);
+            : this.TracesRepo.TryGetTrace(this.TraceId);
 
     private SpanData? SelectedSpan { get; set; }
 
+    [SupplyParameterFromQuery]
     private int? SpansMinimum { get; set; }
 
+    [SupplyParameterFromQuery]
     private double? DurationMinimum { get; set; }
 
+    [SupplyParameterFromQuery]
     private double? DurationMaximum { get; set; }
 
-    private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByDescending(t => t.Start);
+    [SupplyParameterFromQuery]
+    private bool? GroupSpans { get; set; }
+
+    private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByAscending(t => t.Start);
 
     private IEnumerable<string> TraceNames =>
         this.TracesRepo.Traces
@@ -75,14 +84,14 @@ public partial class Home : IDisposable
         }
 
         var selectedTrace = this.SelectedTrace;
-        if (selectedTrace is null || this.TraceFlameCanvas is null || object.ReferenceEquals(mClientSpans, selectedTrace.Spans))
+        if (this.TraceModule is null || selectedTrace is null || this.TraceFlameCanvas is null || object.ReferenceEquals(mClientSpans, selectedTrace.Spans))
         {
             return;
         }
 
         mClientSpans = selectedTrace.Spans;
 
-        await this.TraceModule!.InvokeVoidAsync(
+        await this.TraceModule.InvokeVoidAsync(
             "initialize",
             this.TraceFlameCanvas,
             mClientSpans ?? [],
@@ -94,6 +103,55 @@ public partial class Home : IDisposable
     private void TracesRepo_TracesChanged(string traceId)
     {
         this.InvokeAsync(this.StateHasChanged);
+    }
+
+    private void DurationMinimum_Change(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value as string, out var value) && value is > 0)
+        {
+            this.DurationMinimum = value;
+        }
+        else
+        {
+            this.DurationMinimum = null;
+        }
+
+        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.DurationMinimum), this.DurationMinimum), replace: true);
+    }
+
+    private void DurationMaximum_Change(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value as string, out var value) && value is > 0)
+        {
+            this.DurationMaximum = value;
+        }
+        else
+        {
+            this.DurationMaximum = null;
+        }
+
+        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.DurationMaximum), this.DurationMaximum), replace: true);
+    }
+
+    private void SpansMinimum_Change(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value as string, out var value) && value is > 1)
+        {
+            this.SpansMinimum = value;
+        }
+        else
+        {
+            this.SpansMinimum = null;
+        }
+
+        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.SpansMinimum), this.SpansMinimum), replace: true);
+    }
+
+    private void GroupSpans_Change(ChangeEventArgs e)
+    {
+        this.GroupSpans = (e.Value as bool? ?? false) ? null : false;
+
+        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.GroupSpans), this.GroupSpans), replace: true);
     }
 
     private void ToggleTraceNameFilter(string traceName)

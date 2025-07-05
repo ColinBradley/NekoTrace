@@ -68,6 +68,12 @@ input {
 	gap: 1em;
 }
 
+.inline {
+	display: flex;
+	flex-direction: row;
+	gap: .5em;
+}
+
 input[type=checkbox] {
 	zoom: 1.3;
 }
