@@ -52,7 +52,7 @@
                         @foreach (var name in this.TraceNames)
                         {
                             <label>
-                                <input type="checkbox" @onchange="() => this.ToggleTraceNameFilter(name)" checked="@(!mIgnoredTraceNames.Contains(name))" />
+                                <input type="checkbox" @onchange="() => this.ToggleTraceNameFilter(name)" checked="@(!this.IgnoredTraceNamesSet.Contains(name))" />
                                 <span>
                                     @name
                                 </span>
