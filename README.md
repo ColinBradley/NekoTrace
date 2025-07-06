@@ -11,6 +11,7 @@ Neko means cat, cats are small and cute. They are not dogs with lots of data.
 ## Trace View Tips
 
 - Click and drag to pan.
+- `MouseWheel` to zoom in and out.
 - `Alt + MouseWheel` to scroll vertically.
 - `Alt + Shift + MouseWheel` to scroll horizontally.
 - Double click to reset zoom and location.
