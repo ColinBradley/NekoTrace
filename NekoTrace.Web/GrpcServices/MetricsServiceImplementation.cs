@@ -1,7 +1,7 @@
 using Grpc.Core;
 using OpenTelemetry.Proto.Collector.Metrics.V1;
 
-namespace InfoCat.Web.GrpcServices;
+namespace NekoTrace.Web.GrpcServices;
 
 public class MetricsServiceImplementation : MetricsService.MetricsServiceBase
 {

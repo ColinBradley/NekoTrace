@@ -1,4 +1,4 @@
-﻿namespace InfoCat.Web.Repositories;
+﻿namespace NekoTrace.Web.Repositories;
 
 using System.Collections.Immutable;
 using static OpenTelemetry.Proto.Trace.V1.Span.Types;

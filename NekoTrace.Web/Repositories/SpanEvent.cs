@@ -1,4 +1,4 @@
-﻿namespace InfoCat.Web.Repositories;
+﻿namespace NekoTrace.Web.Repositories;
 
 using System;
 using System.Collections.Generic;

@@ -1,7 +1,7 @@
 using Grpc.Core;
 using OpenTelemetry.Proto.Collector.Profiles.V1Development;
 
-namespace InfoCat.Web.GrpcServices;
+namespace NekoTrace.Web.GrpcServices;
 
 public class ProfilesServiceImplementation : ProfilesService.ProfilesServiceBase
 {

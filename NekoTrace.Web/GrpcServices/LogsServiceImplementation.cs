@@ -1,7 +1,7 @@
 using Grpc.Core;
 using OpenTelemetry.Proto.Collector.Logs.V1;
 
-namespace InfoCat.Web.GrpcServices;
+namespace NekoTrace.Web.GrpcServices;
 
 public class LogsServiceImplementation : LogsService.LogsServiceBase
 {

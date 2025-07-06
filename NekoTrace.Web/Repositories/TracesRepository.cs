@@ -1,4 +1,4 @@
-﻿namespace InfoCat.Web.Repositories;
+﻿namespace NekoTrace.Web.Repositories;
 
 using Google.Protobuf;
 
@@ -10,7 +10,7 @@ public class TracesRepository
 
     public event Action<string>? TracesChanged;
 
-    public IQueryable<Trace> Traces { get; private set; } = 
+    public IQueryable<Trace> Traces { get; private set; } =
         Array.Empty<Trace>().AsQueryable();
 
     internal Trace GetOrAddTrace(ByteString traceId)
@@ -24,7 +24,7 @@ public class TracesRepository
             if (!mTracesById.TryGetValue(stringId, out var trace))
             {
                 mLock.EnterWriteLock();
-                
+
                 if (!mTracesById.TryGetValue(stringId, out trace))
                 {
                     trace = mTracesById[stringId] = new Trace() { Id = stringId, Repository = this };
@@ -48,8 +48,8 @@ public class TracesRepository
 
         try
         {
-            return mTracesById.TryGetValue(id, out var trace) 
-                ? trace 
+            return mTracesById.TryGetValue(id, out var trace)
+                ? trace
                 : null;
         }
         finally

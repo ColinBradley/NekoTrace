@@ -1,6 +1,6 @@
-using InfoCat.Web.GrpcServices;
-using InfoCat.Web.Repositories;
-using InfoCat.Web.UI;
+using NekoTrace.Web.GrpcServices;
+using NekoTrace.Web.Repositories;
+using NekoTrace.Web.UI;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var traces = new TracesRepository();

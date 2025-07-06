@@ -1,11 +1,11 @@
 using Google.Protobuf.Collections;
 using Grpc.Core;
-using InfoCat.Web.Repositories;
+using NekoTrace.Web.Repositories;
 using OpenTelemetry.Proto.Collector.Trace.V1;
 using OpenTelemetry.Proto.Common.V1;
 using StatusCode = OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode;
 
-namespace InfoCat.Web.GrpcServices;
+namespace NekoTrace.Web.GrpcServices;
 
 public class TraceServiceImplementation : TraceService.TraceServiceBase
 {

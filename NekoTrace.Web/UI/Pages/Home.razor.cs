@@ -1,6 +1,6 @@
-namespace InfoCat.Web.UI.Pages;
+namespace NekoTrace.Web.UI.Pages;
 
-using InfoCat.Web.Repositories;
+using NekoTrace.Web.Repositories;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using Microsoft.JSInterop;
@@ -62,7 +62,7 @@ public partial class Home : IDisposable
             if (!string.Equals(this.IgnoredTraceNames, mIgnoredTraceNamesRaw, StringComparison.Ordinal))
             {
                 mIgnoredTraceNamesSet.Clear();
-                foreach(var traceName in this.IgnoredTraceNames?.Split('|') ?? [])
+                foreach (var traceName in this.IgnoredTraceNames?.Split('|') ?? [])
                 {
                     mIgnoredTraceNamesSet.Add(traceName);
                 }
@@ -83,7 +83,7 @@ public partial class Home : IDisposable
             .Distinct()
             .Order();
 
-    private IQueryable<Trace> FilteredTraces => 
+    private IQueryable<Trace> FilteredTraces =>
         this.TracesRepo.Traces
             .Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
             .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
@@ -92,7 +92,7 @@ public partial class Home : IDisposable
 
     private IEnumerable<string> RootSpanAttributeKeys =>
         this.TracesRepo.Traces
-            .SelectMany(t => 
+            .SelectMany(t =>
                 t.RootSpan == null
                     ? Array.Empty<string>()
                     : t.RootSpan.Attributes.Keys.ToArray()
@@ -211,7 +211,7 @@ public partial class Home : IDisposable
         }
 
         mIgnoredTraceNamesRaw = string.Join('|', set.Order(StringComparer.Ordinal));
-        
+
         this.IgnoredTraceNames = mIgnoredTraceNamesRaw;
 
         this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.IgnoredTraceNames), this.IgnoredTraceNames), replace: true);

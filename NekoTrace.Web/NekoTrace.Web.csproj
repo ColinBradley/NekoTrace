@@ -5,7 +5,6 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <UserSecretsId>389d3aa4-6bfc-45e4-90b8-6cf0cd0ea7a2</UserSecretsId>
-        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     </PropertyGroup>
 
     <ItemGroup>
@@ -13,20 +12,17 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Grpc.AspNetCore" Version="2.71.0" />
-        <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid" Version="9.0.6" />
-        <PackageReference Include="Microsoft.TypeScript.MSBuild" Version="5.8.3">
+        <PackageReference Include="Grpc.AspNetCore" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid" />
+        <PackageReference Include="Microsoft.TypeScript.MSBuild">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1-Preview.1" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="wwwroot\js\" />
+        <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" />
     </ItemGroup>
 
     <PropertyGroup>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
         <DockerfileRunArguments>-p 8080:8080 -p 8081:8081 -p 4317:4317</DockerfileRunArguments>
     </PropertyGroup>
 
