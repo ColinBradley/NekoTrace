@@ -21,12 +21,14 @@ const SPAN_HEIGHT_TOTAL = SPAN_HEIGHT_INNER + (SPAN_BORDER_WIDTH * 2);
 const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL;
 
 const pleasingColors = [
-    "#2A9D8F",
-    "#A8D676",
+    "#637E57",
     "#F4A261",
-    "#E9C46A",
+    "#B08354",
+    "#2A9D8F",
     "#00BFFF",
     "#4C4C9D",
+    "#A8D676",
+    "#E9C46A",
     "#9B5DE5",
     "#457B9D",
     "#D946EF",

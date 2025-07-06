@@ -104,6 +104,11 @@ public partial class Home : IDisposable
         base.OnInitialized();
 
         this.TracesRepo.TracesChanged += this.TracesRepo_TracesChanged;
+
+        if (this.SpanColorSelector is null)
+        {
+            this.SpanColorSelector = "otel.library.name";
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
