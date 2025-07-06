@@ -8,6 +8,7 @@ var traces = new TracesRepository();
 var collectorAppTask = Task.Run(async () =>
 {
     var builder = WebApplication.CreateBuilder(args);
+    builder.Configuration.Sources.Clear();
 
     builder.Services.AddGrpc();
 

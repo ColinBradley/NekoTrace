@@ -6,17 +6,11 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
       "dotnetRunMessages": true,
-      "applicationUrl": "http://*:8080;https://*:8081",
       "launchBrowser": true
     },
     "Container (Dockerfile)": {
       "commandName": "Docker",
-      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
-      "environmentVariables": {
-        "ASPNETCORE_HTTP_PORTS": "8080",
-        "ASPNETCORE_HTTPS_PORTS": "8081"
-      },
-      "useSSL": true
+      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}"
     }
   },
   "$schema": "https://json.schemastore.org/launchsettings.json"

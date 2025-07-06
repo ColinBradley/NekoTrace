@@ -8,3 +8,4 @@
 [Oo]bj/
 
 /NekoTrace.Web/wwwroot/js
+/NekoTrace.Web/.config/dotnet-tools.json
