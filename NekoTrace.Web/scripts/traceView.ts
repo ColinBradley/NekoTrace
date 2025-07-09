@@ -1,4 +1,4 @@
-import type { SpanData } from "./types.js";
+import { type SpanData, StatusCode } from "./types.js";
 
 export function initialize(
     targetCanvas: HTMLCanvasElement & { traceRenderer: TraceRenderer },
@@ -21,13 +21,16 @@ const SPAN_HEIGHT_TOTAL = SPAN_HEIGHT_INNER + (SPAN_BORDER_WIDTH * 2);
 const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL;
 
 const pleasingColors = [
-    "#637E57",
-    "#F4A261",
-    "#B08354",
+    "#3A4B33",
+    "#61594F",
+    "#3F4F44",
+    "#8E5E37",
+    "#004487",
     "#2A9D8F",
     "#00BFFF",
     "#4C4C9D",
     "#A8D676",
+    "#5917bc",
     "#E9C46A",
     "#9B5DE5",
     "#457B9D",
@@ -327,23 +330,24 @@ class TraceRenderer {
                     ? this.selectedSpansParents.has(span)
                     : this.hotSpansParents.has(span);
 
-            this.canvasContext.fillStyle =
-                 isParent
-                    ? "#11374b"
-                    : span.color;
+            this.canvasContext.fillStyle = span.color;
+            this.renderSpanBackground(span);
 
-            this.canvasContext.fillRect(
-                this.left + span.absolutePixelPositionX + SPAN_BORDER_WIDTH - 1,
-                this.top + span.absolutePixelPositionY + SPAN_BORDER_WIDTH - 1,
-                span.pixelWidth - (SPAN_BORDER_WIDTH * 2) + 2,
-                SPAN_HEIGHT_INNER + 2
-            );
+            if (span.statusCode === StatusCode.Error) {
+                this.canvasContext.fillStyle = "rgba(255, 0, 0, .8)"
+                this.renderSpanBackground(span);
+            }
+
+            if (isParent) {
+                this.canvasContext.fillStyle = "rgba(0, 0, 0, .3)"
+                this.renderSpanBackground(span);
+            }
 
             if (isHot || isSelected) {
                 this.canvasContext.strokeStyle =
                     isSelected || isHot
-                            ? "#dd8451"
-                            : "#aa653e";
+                        ? "#dd8451"
+                        : "#aa653e";
 
                 this.canvasContext.lineWidth = SPAN_BORDER_WIDTH;
                 this.canvasContext.strokeRect(
@@ -354,15 +358,40 @@ class TraceRenderer {
                 );
             }
 
-            const textWidth = span.pixelWidth - (SPAN_BORDER_WIDTH * 2) - (SPAN_INNER_PADDING * 2);
-            this.canvasContext.fillStyle = "white";
-            this.canvasContext.fillText(
-                this.fitString(span.name, textWidth),
-                this.left + Math.round(span.absolutePixelPositionX + SPAN_INNER_PADDING + SPAN_BORDER_WIDTH),
-                this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL / 2)) + 2,
-                textWidth
-            );
+            if (span.pixelWidth > this.characterPixelWidth) {
+                const abosuluteTextLeft = this.left + Math.round(span.absolutePixelPositionX + SPAN_INNER_PADDING + SPAN_BORDER_WIDTH);
+                const abosuluteTextWidth = span.pixelWidth - (SPAN_BORDER_WIDTH * 2) - (SPAN_INNER_PADDING * 2);
+                const effectiveTextLeft = Math.max(0, abosuluteTextLeft);
+                const effectiveTextWidth = Math.min(this.canvasElement.width, this.canvasElement.width - abosuluteTextLeft, abosuluteTextWidth - (effectiveTextLeft - abosuluteTextLeft), abosuluteTextWidth);
+
+                this.canvasContext.fillStyle = "white";
+                this.canvasContext.fillText(
+                    this.fitString(span.name, effectiveTextWidth),
+                    effectiveTextLeft,
+                    this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL / 2)) + 2,
+                    effectiveTextWidth
+                );
+
+                const durationTextWidth = (this.characterPixelWidth * span.durationText.length);
+                if ((this.characterPixelWidth * span.name.length) + durationTextWidth + 1 < effectiveTextWidth) {
+                    this.canvasContext.fillText(
+                        span.durationText,
+                        (effectiveTextLeft + effectiveTextWidth) - durationTextWidth,
+                        this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL / 2)) + 2,
+                        durationTextWidth
+                    );
+                }
+            }
         }
+    }
+
+    private renderSpanBackground(span: SpanItem) {
+        this.canvasContext.fillRect(
+            this.left + span.absolutePixelPositionX + SPAN_BORDER_WIDTH - 1,
+            this.top + span.absolutePixelPositionY + SPAN_BORDER_WIDTH - 1,
+            span.pixelWidth - (SPAN_BORDER_WIDTH * 2) + 2,
+            SPAN_HEIGHT_INNER + 2
+        );
     }
 
     private updateSpanLocations() {

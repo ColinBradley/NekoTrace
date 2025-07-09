@@ -68,6 +68,28 @@
                 </ChildContent>
             </TemplateColumn>
 
+            <PropertyColumn Title="Has Error"
+                            Property="@(t => t.HasError)"
+                            Sortable="true"
+                            Align="Align.Right">
+                <ColumnOptions>
+                    <div class="has-error-options">
+                        <label>
+                            <input type="checkbox" @onchange="() => this.ToggleHasError(true)" checked="@(this.HasError is true)" />
+                            <span>
+                                True
+                            </span>
+                        </label>
+                        <label>
+                            <input type="checkbox" @onchange="() => this.ToggleHasError(false)" checked="@(this.HasError is false)" />
+                            <span>
+                                False
+                            </span>
+                        </label>
+                    </div>
+                </ColumnOptions>
+            </PropertyColumn>
+
             <PropertyColumn Title="Spans"
                             Property="@(t => t.Spans.Count)"
                             Sortable="true"

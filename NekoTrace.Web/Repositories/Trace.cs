@@ -20,15 +20,18 @@ public sealed record Trace
 
     public TimeSpan Duration { get; private set; }
 
+    public bool HasError { get; private set; }
+
     internal void AddSpan(SpanData span)
     {
         mLock.EnterWriteLock();
 
         var insertIndex = this.Spans.FindIndex(s => s.StartTime >= span.StartTime);
 
-        this.Spans = insertIndex >= 0
-            ? this.Spans.Insert(insertIndex, span)
-            : this.Spans.Add(span);
+        this.Spans = insertIndex >= 0 ? this.Spans.Insert(insertIndex, span) : this.Spans.Add(span);
+        this.HasError = this.Spans.Any(s =>
+            s.StatusCode is OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error
+        );
 
         if (string.IsNullOrEmpty(span.ParentSpanId))
         {

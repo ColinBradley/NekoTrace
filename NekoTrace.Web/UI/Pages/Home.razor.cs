@@ -48,6 +48,9 @@ public partial class Home : IDisposable
     private bool? GroupSpans { get; set; }
 
     [SupplyParameterFromQuery]
+    private bool? HasError { get; set; }
+
+    [SupplyParameterFromQuery]
     private string? SpanColorSelector { get; set; }
 
     [SupplyParameterFromQuery]
@@ -94,6 +97,7 @@ public partial class Home : IDisposable
             .TracesRepo.Traces.Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
             .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
             .Where(t => (this.DurationMaximum ?? double.MaxValue) >= t.Duration.TotalSeconds)
+            .Where(t => this.HasError == null || t.HasError == this.HasError)
             .Where(t =>
                 t.RootSpan == null
                 || this.IgnoredTraceNames == null
@@ -217,6 +221,24 @@ public partial class Home : IDisposable
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(nameof(this.GroupSpans), this.GroupSpans),
+            replace: true
+        );
+    }
+
+    private void ToggleHasError(bool value)
+    {
+        this.HasError = (this.HasError, value) switch
+        {
+            (null, false) => false,
+            (null, true) => true,
+            (false, false) => null,
+            (false, true) => true,
+            (true, false) => false,
+            (true, true) => null,
+        };
+
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.HasError), this.HasError),
             replace: true
         );
     }

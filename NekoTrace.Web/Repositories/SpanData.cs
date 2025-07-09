@@ -33,4 +33,18 @@ public sealed record SpanData
     public required ImmutableArray<SpanEvent> Events { get; init; }
 
     public required ImmutableArray<Dictionary<string, object?>> Links { get; init; }
+
+    public string DurationText
+    {
+        get
+        {
+            var durationMs = this.EndTimeMs - this.StartTimeMs;
+            return durationMs switch
+            {
+                < 1 => Math.Round(durationMs * 1000, 1) + "µs",
+                >= 1000 => Math.Round(durationMs / 1000, 2) + "s",
+                _ => Math.Round(durationMs, 1) + "ms",
+            };
+        }
+    }
 }

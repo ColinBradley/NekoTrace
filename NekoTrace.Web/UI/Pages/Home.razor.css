@@ -19,21 +19,21 @@
 	grid-template-rows: auto auto minmax(0, 1fr);
 }
 
-.trace-names {
+.trace-names, .has-error-options {
 	display: flex;
 	flex-direction: column;
 	gap: .3em;
 }
 
-.trace-names label {
-	flex-direction: row;
-	align-items: center;
-	gap: .5em;
-}
+	.trace-names label, .has-error-options label {
+		flex-direction: row;
+		align-items: center;
+		gap: .5em;
+	}
 
 ::deep .quickgrid {
 	display: grid;
-	grid-template-columns: min-content minmax(0, 1fr) min-content min-content;
+	grid-template-columns: min-content minmax(0, 1fr) min-content min-content min-content;
 	gap: 3px;
 }
 
