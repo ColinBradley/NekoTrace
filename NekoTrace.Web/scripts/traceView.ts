@@ -383,7 +383,7 @@ class TraceRenderer {
         }
 
         if (value.length > maxCharacters) {
-            return value.substring(0, maxCharacters) + '�';
+            return value.substring(0, maxCharacters) + '…';
         }
 
         return value;

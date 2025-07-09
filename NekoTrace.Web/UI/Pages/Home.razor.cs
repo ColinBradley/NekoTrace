@@ -1,10 +1,10 @@
 namespace NekoTrace.Web.UI.Pages;
 
-using NekoTrace.Web.Repositories;
+using System.Collections.Immutable;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using Microsoft.JSInterop;
-using System.Collections.Immutable;
+using NekoTrace.Web.Repositories;
 
 public partial class Home : IDisposable
 {
@@ -31,9 +31,7 @@ public partial class Home : IDisposable
     private IJSObjectReference? TraceModule { get; set; }
 
     private Trace? SelectedTrace =>
-        this.TraceId is null
-            ? null
-            : this.TracesRepo.TryGetTrace(this.TraceId);
+        this.TraceId is null ? null : this.TracesRepo.TryGetTrace(this.TraceId);
 
     private SpanData? SelectedSpan { get; set; }
 
@@ -55,11 +53,19 @@ public partial class Home : IDisposable
     [SupplyParameterFromQuery]
     private string? IgnoredTraceNames { get; set; }
 
+    private string EffectiveSpanColorSelector => this.SpanColorSelector ?? "otel.library.name";
+
     private HashSet<string> IgnoredTraceNamesSet
     {
         get
         {
-            if (!string.Equals(this.IgnoredTraceNames, mIgnoredTraceNamesRaw, StringComparison.Ordinal))
+            if (
+                !string.Equals(
+                    this.IgnoredTraceNames,
+                    mIgnoredTraceNamesRaw,
+                    StringComparison.Ordinal
+                )
+            )
             {
                 mIgnoredTraceNamesSet.Clear();
                 foreach (var traceName in this.IgnoredTraceNames?.Split('|') ?? [])
@@ -77,25 +83,27 @@ public partial class Home : IDisposable
     private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByAscending(t => t.Start);
 
     private IEnumerable<string> TraceNames =>
-        this.TracesRepo.Traces
-            .Where(t => t.RootSpan != null)
+        this
+            .TracesRepo.Traces.Where(t => t.RootSpan != null)
             .Select(t => t.RootSpan!.Name)
             .Distinct()
             .Order();
 
     private IQueryable<Trace> FilteredTraces =>
-        this.TracesRepo.Traces
-            .Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
+        this
+            .TracesRepo.Traces.Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
             .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
             .Where(t => (this.DurationMaximum ?? double.MaxValue) >= t.Duration.TotalSeconds)
-            .Where(t => t.RootSpan == null || this.IgnoredTraceNames == null || !this.IgnoredTraceNames.Contains(t.RootSpan!.Name));
+            .Where(t =>
+                t.RootSpan == null
+                || this.IgnoredTraceNames == null
+                || !this.IgnoredTraceNames.Contains(t.RootSpan!.Name)
+            );
 
     private IEnumerable<string> RootSpanAttributeKeys =>
-        this.TracesRepo.Traces
-            .SelectMany(t =>
-                t.RootSpan == null
-                    ? Array.Empty<string>()
-                    : t.RootSpan.Attributes.Keys.ToArray()
+        this
+            .TracesRepo.Traces.SelectMany(t =>
+                t.RootSpan == null ? Array.Empty<string>() : t.RootSpan.Attributes.Keys.ToArray()
             )
             .Distinct(StringComparer.OrdinalIgnoreCase);
 
@@ -104,11 +112,6 @@ public partial class Home : IDisposable
         base.OnInitialized();
 
         this.TracesRepo.TracesChanged += this.TracesRepo_TracesChanged;
-
-        if (this.SpanColorSelector is null)
-        {
-            this.SpanColorSelector = "otel.library.name";
-        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -124,7 +127,12 @@ public partial class Home : IDisposable
         }
 
         var selectedTrace = this.SelectedTrace;
-        if (this.TraceModule is null || selectedTrace is null || this.TraceFlameCanvas is null || object.ReferenceEquals(mClientSpans, selectedTrace.Spans))
+        if (
+            this.TraceModule is null
+            || selectedTrace is null
+            || this.TraceFlameCanvas is null
+            || object.ReferenceEquals(mClientSpans, selectedTrace.Spans)
+        )
         {
             return;
         }
@@ -135,7 +143,7 @@ public partial class Home : IDisposable
             "initialize",
             this.TraceFlameCanvas,
             mClientSpans ?? [],
-            this.SpanColorSelector,
+            this.EffectiveSpanColorSelector,
             mSelfReference,
             nameof(SetSelectedSpanId)
         );
@@ -157,7 +165,13 @@ public partial class Home : IDisposable
             this.DurationMinimum = null;
         }
 
-        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.DurationMinimum), this.DurationMinimum), replace: true);
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(
+                nameof(this.DurationMinimum),
+                this.DurationMinimum
+            ),
+            replace: true
+        );
     }
 
     private void DurationMaximum_Change(ChangeEventArgs e)
@@ -171,7 +185,13 @@ public partial class Home : IDisposable
             this.DurationMaximum = null;
         }
 
-        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.DurationMaximum), this.DurationMaximum), replace: true);
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(
+                nameof(this.DurationMaximum),
+                this.DurationMaximum
+            ),
+            replace: true
+        );
     }
 
     private void SpansMinimum_Change(ChangeEventArgs e)
@@ -185,21 +205,49 @@ public partial class Home : IDisposable
             this.SpansMinimum = null;
         }
 
-        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.SpansMinimum), this.SpansMinimum), replace: true);
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.SpansMinimum), this.SpansMinimum),
+            replace: true
+        );
     }
 
     private void GroupSpans_Change(ChangeEventArgs e)
     {
         this.GroupSpans = (e.Value as bool? ?? false) ? null : false;
 
-        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.GroupSpans), this.GroupSpans), replace: true);
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.GroupSpans), this.GroupSpans),
+            replace: true
+        );
     }
 
-    private void SpanColorSelector_Change(ChangeEventArgs e)
+    private async void SpanColorSelector_Change(ChangeEventArgs e)
     {
         this.SpanColorSelector = e.Value as string;
 
-        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.SpanColorSelector), this.SpanColorSelector), replace: true);
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(
+                nameof(this.SpanColorSelector),
+                this.SpanColorSelector
+            ),
+            replace: true
+        );
+
+        if (
+            this.TraceModule is not null
+            && mSelfReference is not null
+            && mClientSpans?.Count is > 0
+        )
+        {
+            await this.TraceModule.InvokeVoidAsync(
+                "initialize",
+                this.TraceFlameCanvas,
+                mClientSpans ?? [],
+                this.EffectiveSpanColorSelector,
+                mSelfReference,
+                nameof(SetSelectedSpanId)
+            );
+        }
     }
 
     private void ToggleTraceNameFilter(string traceName)
@@ -214,7 +262,13 @@ public partial class Home : IDisposable
 
         this.IgnoredTraceNames = mIgnoredTraceNamesRaw;
 
-        this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.IgnoredTraceNames), this.IgnoredTraceNames), replace: true);
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(
+                nameof(this.IgnoredTraceNames),
+                this.IgnoredTraceNames
+            ),
+            replace: true
+        );
     }
 
     [JSInvokable]
@@ -226,7 +280,9 @@ public partial class Home : IDisposable
         }
         else
         {
-            this.SelectedSpan = this.SelectedTrace?.Spans.FirstOrDefault(s => string.Equals(s.Id, spanId, StringComparison.Ordinal));
+            this.SelectedSpan = this.SelectedTrace?.Spans.FirstOrDefault(s =>
+                string.Equals(s.Id, spanId, StringComparison.Ordinal)
+            );
         }
 
         this.InvokeAsync(this.StateHasChanged);
