@@ -4,7 +4,7 @@ An in-memory [Open Telemetry](https://opentelemetry.io/) [tracing](https://opent
 
 VERY work in progress.
 
-![Screenshot of app](Content/Screenshot-2025-07-06.png)
+![Screenshot of app](Content/Screenshot-2025-07-10.png)
 
 Neko means cat, cats are small and cute. They are not dogs with lots of data.
 
