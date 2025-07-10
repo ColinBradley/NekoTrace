@@ -1,89 +1,96 @@
 ﻿.page {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	grid-template-rows: auto minmax(0, 1fr);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
 }
 
 .traces {
-	grid-row: 2;
-	overflow: auto;
-	display: grid;
-	align-items: start;
+    grid-row: 2;
+    overflow: auto;
+    display: grid;
+    align-items: start;
 }
 
 .trace {
-	grid-row: 2;
-	grid-column: 2;
-
-	display: grid;
-	grid-template-rows: auto auto minmax(0, 1fr);
+    grid-row: 2;
+    grid-column: 2;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .trace-names, .has-error-options {
-	display: flex;
-	flex-direction: column;
-	gap: .3em;
+    display: flex;
+    flex-direction: column;
+    gap: .3em;
 }
 
-	.trace-names label, .has-error-options label {
-		flex-direction: row;
-		align-items: center;
-		gap: .5em;
-	}
+    .trace-names label, .has-error-options label {
+        flex-direction: row;
+        align-items: center;
+        gap: .5em;
+    }
+
+.events {
+    display: flex;
+    flex-direction: column;
+    gap: .5em;
+}
 
 ::deep .quickgrid {
-	display: grid;
-	grid-template-columns: min-content minmax(0, 1fr) min-content min-content min-content;
-	gap: 3px;
+    display: grid;
+    grid-template-columns: min-content minmax(0, 1fr) min-content min-content min-content;
+    gap: 3px;
 }
 
-::deep .quickgrid thead {
-	position: sticky;
-	top: 0;
-	z-index: 1;
-}
+    ::deep .quickgrid thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
 
-	::deep .quickgrid thead, ::deep .quickgrid tr, ::deep .quickgrid tbody {
-		display: grid;
-		grid-template-columns: subgrid;
-		grid-column: 1 / -1;
-	}
+    ::deep .quickgrid thead, ::deep .quickgrid tr, ::deep .quickgrid tbody {
+        display: grid;
+        grid-template-columns: subgrid;
+        grid-column: 1 / -1;
+    }
 
 ::deep th {
-	font-weight: normal;
-	background-color: #374151;
+    font-weight: normal;
+    background-color: #374151;
 }
 
 ::deep td {
-	overflow: hidden;
-	padding: .3em;
-	text-overflow: ellipsis;
+    overflow: hidden;
+    padding: .3em;
+    text-overflow: ellipsis;
 }
 
-::deep .quickgrid tbody tr  {
-	height: 28px;
+::deep .quickgrid tbody tr {
+    height: 28px;
 }
 
-::deep .quickgrid tbody tr:hover {
-	background-color: #1c2831;
-}
+    ::deep .quickgrid tbody tr:hover {
+        background-color: #1c2831;
+    }
 
 ::deep .quickgrid .col-header-content {
-	padding: .7em;
+    padding: .7em;
 }
 
 ::deep .quickgrid .col-title {
-	gap: 1em;
+    gap: 1em;
 }
 
 ::deep .quickgrid .col-options-button {
-	cursor: pointer;
+    cursor: pointer;
 }
 
 ::deep .quickgrid[theme=dark] .col-options {
-	background-color: black;
+    background-color: black;
+    max-height: 70vh;
+    overflow: auto;
 }
 
 canvas {
-	background-color: #181818;
+    background-color: #181818;
 }

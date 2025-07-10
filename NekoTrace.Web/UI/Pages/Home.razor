@@ -194,33 +194,38 @@
                                     @spanAttribute.Value
                                 </dd>
                             }
+                        </dl>
+
+                        @if (this.SelectedSpan.Events.Length > 0)
+                        {
+                            <h2>
+                                Events
+                            </h2>
                             <div class="events">
                                 @foreach (var spanEvent in this.SelectedSpan.Events)
                                 {
-                                    <div class="event">
-                                        <div class="name">
+                                    <dl class="event span-info">
+                                        <dt>Name</dt>
+                                        <dd class="name">
                                             @spanEvent.Name
-                                        </div>
-                                        <div class="time">
+                                        </dd>
+                                        <dt>Time</dt>
+                                        <dd class="time">
                                             @spanEvent.Time
-                                        </div>
-                                        <div class="attributes">
-                                            @foreach (var eventAttribute in spanEvent.Attributes)
-                                            {
-                                                <div class="event">
-                                                    <div class="key">
-                                                        @eventAttribute.Key
-                                                    </div>
-                                                    <div class="value">
-                                                        @eventAttribute.Value
-                                                    </div>
-                                                </div>
-                                            }
-                                        </div>
-                                    </div>
+                                        </dd>
+                                        @foreach (var eventAttribute in spanEvent.Attributes)
+                                        {
+                                            <dt class="key">
+                                                @eventAttribute.Key
+                                            </dt>
+                                            <dd class="value" title="@eventAttribute.Value">
+                                                @eventAttribute.Value
+                                            </dd>
+                                        }
+                                    </dl>
                                 }
                             </div>
-                        </dl>
+                        }
                     }
                 </div>
             </div>
