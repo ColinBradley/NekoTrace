@@ -85,6 +85,8 @@ public partial class Home : IDisposable
 
     private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByAscending(t => t.Start);
 
+    private GridSort<Trace> TraceHasErrorGridSort { get; } = GridSort<Trace>.ByAscending(t => t.HasError);
+
     private IEnumerable<string> TraceNames =>
         this
             .TracesRepo.Traces.Where(t => t.RootSpan != null)

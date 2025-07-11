@@ -8,7 +8,9 @@
 
     <div style="display: flex; gap: 1em; grid-column: 1/3; padding: 1em;">
         <h1>
-            Traces
+            <a href="@this.Navigation.GetUriWithQueryParameter("TraceId", string.Empty)">
+                Traces
+            </a>
         </h1>
         <div>
             <label>
@@ -68,8 +70,8 @@
                 </ChildContent>
             </TemplateColumn>
 
-            <PropertyColumn Title="Has Error"
-                            Property="@(t => t.HasError)"
+            <TemplateColumn Title="Has Error"
+                            SortBy="this.TraceHasErrorGridSort"
                             Sortable="true"
                             Align="Align.Right">
                 <ColumnOptions>
@@ -88,7 +90,22 @@
                         </label>
                     </div>
                 </ColumnOptions>
-            </PropertyColumn>
+
+                <ChildContent>
+                    @if (context.HasError)
+                    {
+                        <span class="trace-error-true">
+                            true
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="trace-error-false">
+                            false
+                        </span>
+                    }
+                </ChildContent>
+            </TemplateColumn>
 
             <PropertyColumn Title="Spans"
                             Property="@(t => t.Spans.Count)"
@@ -181,10 +198,13 @@
                             <dd class="parent">
                                 @(selectedTrace.Spans.FirstOrDefault(s => s.Id == this.SelectedSpan.ParentSpanId)?.Name)
                             </dd>
-                            <dt>Message</dt>
-                            <dd class="status-message">
-                                @this.SelectedSpan.StatusMessage
-                            </dd>
+                            @if (!string.IsNullOrEmpty(this.SelectedSpan.StatusMessage))
+                            {
+                                <dt>Message</dt>
+                                <dd class="status-message">
+                                    @this.SelectedSpan.StatusMessage
+                                </dd>
+                            }
                             @foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key))
                             {
                                 <dt>

@@ -73,6 +73,14 @@
         background-color: #1c2831;
     }
 
+    ::deep .quickgrid tbody tr:has(.trace-error-true) {
+        background-color: #ff000057;
+    }
+
+        ::deep .quickgrid tbody tr:has(.trace-error-true):hover {
+            background-color: #ff000080;
+        }
+
 ::deep .quickgrid .col-header-content {
     padding: .7em;
 }
