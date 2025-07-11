@@ -47,6 +47,11 @@ dd {
 	white-space: nowrap;
 }
 
+	dd:hover {
+		overflow: visible;
+		white-space: pre;
+	}
+
 label {
 	display: flex;
 	flex-direction: column;

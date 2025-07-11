@@ -172,7 +172,7 @@
 
                 <canvas @ref="this.TraceFlameCanvas"
                         width="1000"
-                        height="700" />
+                        height="600" />
 
                 <div style="overflow:auto; width: 1000px;">
                     @if (this.SelectedSpan is not null)
@@ -210,7 +210,7 @@
                                 <dt>
                                     @spanAttribute.Key
                                 </dt>
-                                <dd class="value" title="@spanAttribute.Value">
+                                <dd class="value">
                                     @spanAttribute.Value
                                 </dd>
                             }
@@ -238,7 +238,7 @@
                                             <dt class="key">
                                                 @eventAttribute.Key
                                             </dt>
-                                            <dd class="value" title="@eventAttribute.Value">
+                                            <dd class="value">
                                                 @eventAttribute.Value
                                             </dd>
                                         }
