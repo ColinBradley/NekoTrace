@@ -1,0 +1,41 @@
+﻿.trace {
+	display: grid;
+	grid-template-columns: min-content;
+	grid-template-rows: min-content auto minmax(0, 1fr);
+}
+
+.events {
+	display: flex;
+	flex-direction: column;
+	gap: .5em;
+}
+
+canvas {
+	background-color: #181818;
+}
+
+.info {
+	overflow: auto;
+}
+
+h1 {
+	padding: .3em;
+}
+
+.trace.full {
+	grid-template-columns: min-content minmax(0, 1fr);
+	grid-template-rows: min-content min-content minmax(0, 1fr);
+	overflow: auto;
+}
+
+.full .commands {
+	grid-row: 2;
+}
+
+.full canvas {
+	grid-row: 3;
+}
+
+.full .info {
+	grid-row: 2 / -1;
+}

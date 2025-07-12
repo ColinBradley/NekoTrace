@@ -1,39 +1,27 @@
 namespace NekoTrace.Web.UI.Pages;
 
-using System.Collections.Immutable;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using Microsoft.JSInterop;
 using NekoTrace.Web.Repositories;
+using NekoTrace.Web.UI.Components;
 
 public partial class Home : IDisposable
 {
     private readonly HashSet<string> mIgnoredTraceNamesSet = new(StringComparer.OrdinalIgnoreCase);
     private string? mIgnoredTraceNamesRaw = null;
 
-    private ImmutableList<SpanData>? mClientSpans;
-    private DotNetObjectReference<Home>? mSelfReference;
+    private DateTimeOffset mLastRefreshed = DateTimeOffset.UtcNow;
+    private bool mHasPendingRefresh = false;
 
     [Inject]
     public required TracesRepository TracesRepo { get; set; }
-
-    [Inject]
-    public required IJSRuntime JSRuntime { get; set; }
 
     [Inject]
     public required NavigationManager Navigation { get; set; }
 
     [SupplyParameterFromQuery]
     public string? TraceId { get; set; }
-
-    private ElementReference? TraceFlameCanvas { get; set; }
-
-    private IJSObjectReference? TraceModule { get; set; }
-
-    private Trace? SelectedTrace =>
-        this.TraceId is null ? null : this.TracesRepo.TryGetTrace(this.TraceId);
-
-    private SpanData? SelectedSpan { get; set; }
 
     [SupplyParameterFromQuery]
     private int? SpansMinimum { get; set; }
@@ -45,9 +33,6 @@ public partial class Home : IDisposable
     private double? DurationMaximum { get; set; }
 
     [SupplyParameterFromQuery]
-    private bool? GroupSpans { get; set; }
-
-    [SupplyParameterFromQuery]
     private bool? HasError { get; set; }
 
     [SupplyParameterFromQuery]
@@ -56,7 +41,7 @@ public partial class Home : IDisposable
     [SupplyParameterFromQuery]
     private string? IgnoredTraceNames { get; set; }
 
-    private string EffectiveSpanColorSelector => this.SpanColorSelector ?? "otel.library.name";
+    private string EffectiveSpanColorSelector => this.SpanColorSelector ?? TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR;
 
     private HashSet<string> IgnoredTraceNamesSet
     {
@@ -120,44 +105,24 @@ public partial class Home : IDisposable
         this.TracesRepo.TracesChanged += this.TracesRepo_TracesChanged;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async void TracesRepo_TracesChanged(string traceId)
     {
-        if (firstRender)
+        if (mLastRefreshed < DateTimeOffset.UtcNow.AddSeconds(-0.5))
         {
-            this.TraceModule = await this.JSRuntime.InvokeAsync<IJSObjectReference>(
-                "import",
-                "/js/traceView.js"
-            );
+            mLastRefreshed = DateTimeOffset.UtcNow;
+            Interlocked.Exchange(ref mHasPendingRefresh, false);
 
-            mSelfReference = DotNetObjectReference.Create(this);
+            await this.InvokeAsync(this.StateHasChanged);
         }
-
-        var selectedTrace = this.SelectedTrace;
-        if (
-            this.TraceModule is null
-            || selectedTrace is null
-            || this.TraceFlameCanvas is null
-            || object.ReferenceEquals(mClientSpans, selectedTrace.Spans)
-        )
+        else if (!Interlocked.Exchange(ref mHasPendingRefresh, true))
         {
-            return;
+            await Task.Delay(500);
+
+            mLastRefreshed = DateTimeOffset.UtcNow;
+            Interlocked.Exchange(ref mHasPendingRefresh, false);
+
+            await this.InvokeAsync(this.StateHasChanged);
         }
-
-        mClientSpans = selectedTrace.Spans;
-
-        await this.TraceModule.InvokeVoidAsync(
-            "initialize",
-            this.TraceFlameCanvas,
-            mClientSpans ?? [],
-            this.EffectiveSpanColorSelector,
-            mSelfReference,
-            nameof(SetSelectedSpanId)
-        );
-    }
-
-    private void TracesRepo_TracesChanged(string traceId)
-    {
-        this.InvokeAsync(this.StateHasChanged);
     }
 
     private void DurationMinimum_Change(ChangeEventArgs e)
@@ -217,16 +182,6 @@ public partial class Home : IDisposable
         );
     }
 
-    private void GroupSpans_Change(ChangeEventArgs e)
-    {
-        this.GroupSpans = (e.Value as bool? ?? false) ? null : false;
-
-        this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(nameof(this.GroupSpans), this.GroupSpans),
-            replace: true
-        );
-    }
-
     private void ToggleHasError(bool value)
     {
         this.HasError = (this.HasError, value) switch
@@ -245,33 +200,21 @@ public partial class Home : IDisposable
         );
     }
 
-    private async void SpanColorSelector_Change(ChangeEventArgs e)
+    private void SpanColorSelector_Change(ChangeEventArgs e)
     {
-        this.SpanColorSelector = e.Value as string;
+        var newValue = e.Value as string;
+        if (string.IsNullOrWhiteSpace(newValue) || newValue is TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR)
+        {
+            newValue = null;
+        }
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
                 nameof(this.SpanColorSelector),
-                this.SpanColorSelector
+                newValue
             ),
             replace: true
         );
-
-        if (
-            this.TraceModule is not null
-            && mSelfReference is not null
-            && mClientSpans?.Count is > 0
-        )
-        {
-            await this.TraceModule.InvokeVoidAsync(
-                "initialize",
-                this.TraceFlameCanvas,
-                mClientSpans ?? [],
-                this.EffectiveSpanColorSelector,
-                mSelfReference,
-                nameof(SetSelectedSpanId)
-            );
-        }
     }
 
     private void ToggleTraceNameFilter(string traceName)
@@ -293,23 +236,6 @@ public partial class Home : IDisposable
             ),
             replace: true
         );
-    }
-
-    [JSInvokable]
-    public void SetSelectedSpanId(string? spanId)
-    {
-        if (string.IsNullOrEmpty(spanId))
-        {
-            this.SelectedSpan = null;
-        }
-        else
-        {
-            this.SelectedSpan = this.SelectedTrace?.Spans.FirstOrDefault(s =>
-                string.Equals(s.Id, spanId, StringComparison.Ordinal)
-            );
-        }
-
-        this.InvokeAsync(this.StateHasChanged);
     }
 
     public void Dispose()

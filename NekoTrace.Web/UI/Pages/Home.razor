@@ -8,14 +8,14 @@
 
     <div style="display: flex; gap: 1em; grid-column: 1/3; padding: 1em;">
         <h1>
-            <a href="@this.Navigation.GetUriWithQueryParameter("TraceId", string.Empty)">
+            <a href="@this.Navigation.GetUriWithQueryParameter("TraceId", (string?)null)">
                 Traces
             </a>
         </h1>
         <div>
             <label>
                 <span>
-                    Trace Color Selector
+                    Span Color Selector
                 </span>
                 <input type="text"
                        value="@this.EffectiveSpanColorSelector"
@@ -64,7 +64,7 @@
                 </ColumnOptions>
 
                 <ChildContent>
-                    <NavLink href="@this.Navigation.GetUriWithQueryParameter("TraceId", context.Id)">
+                    <NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.TraceId), context.Id), new(nameof(TraceViewComponent.SelectedSpanId), null)]))">
                         @(context.RootSpan?.Name ?? context.Id)
                     </NavLink>
                 </ChildContent>
@@ -158,97 +158,8 @@
         </QuickGrid>
     </div>
 
-    @{
-        var selectedTrace = this.SelectedTrace;
-        if (selectedTrace is not null)
-        {
-            <div class="trace">
-                <label class="inline">
-                    <input type="checkbox" checked="@(this.GroupSpans ?? true)" @onchange="this.GroupSpans_Change" />
-                    <span>
-                        Group Spans
-                    </span>
-                </label>
-
-                <canvas @ref="this.TraceFlameCanvas"
-                        width="1000"
-                        height="600" />
-
-                <div style="overflow:auto; width: 1000px;">
-                    @if (this.SelectedSpan is not null)
-                    {
-                        <dl class="span-info">
-                            <dt>Name</dt>
-                            <dd class="name">
-                                @this.SelectedSpan.Name
-                            </dd>
-                            <dt>Start</dt>
-                            <dd class="duration">
-                                @(this.SelectedSpan.StartTime - selectedTrace.Start)
-                            </dd>
-                            <dt>Duration</dt>
-                            <dd class="duration">
-                                @(this.SelectedSpan.EndTime - this.SelectedSpan.StartTime)
-                            </dd>
-                            <dt>Kind</dt>
-                            <dd class="kind">
-                                @this.SelectedSpan.Kind
-                            </dd>
-                            <dt>Parent</dt>
-                            <dd class="parent">
-                                @(selectedTrace.Spans.FirstOrDefault(s => s.Id == this.SelectedSpan.ParentSpanId)?.Name)
-                            </dd>
-                            @if (!string.IsNullOrEmpty(this.SelectedSpan.StatusMessage))
-                            {
-                                <dt>Message</dt>
-                                <dd class="status-message">
-                                    @this.SelectedSpan.StatusMessage
-                                </dd>
-                            }
-                            @foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key))
-                            {
-                                <dt>
-                                    @spanAttribute.Key
-                                </dt>
-                                <dd class="value">
-                                    @spanAttribute.Value
-                                </dd>
-                            }
-                        </dl>
-
-                        @if (this.SelectedSpan.Events.Length > 0)
-                        {
-                            <h2>
-                                Events
-                            </h2>
-                            <div class="events">
-                                @foreach (var spanEvent in this.SelectedSpan.Events)
-                                {
-                                    <dl class="event span-info">
-                                        <dt>Name</dt>
-                                        <dd class="name">
-                                            @spanEvent.Name
-                                        </dd>
-                                        <dt>Time</dt>
-                                        <dd class="time">
-                                            @spanEvent.Time
-                                        </dd>
-                                        @foreach (var eventAttribute in spanEvent.Attributes)
-                                        {
-                                            <dt class="key">
-                                                @eventAttribute.Key
-                                            </dt>
-                                            <dd class="value">
-                                                @eventAttribute.Value
-                                            </dd>
-                                        }
-                                    </dl>
-                                }
-                            </div>
-                        }
-                    }
-                </div>
-            </div>
-        }
-    }
+    <!-- Note: Ideally, this is conditionally rendered, but https://github.com/dotnet/aspnetcore/issues/57746 causes us to not dynamically use components with [SupplyParameterFromQuery] -->
+    <TraceViewComponent TraceId="@this.TraceId"
+                        SpanColorSelector="@this.SpanColorSelector"
+                        IsSmallMode="true" />
 </div>

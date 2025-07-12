@@ -1,0 +1,119 @@
+﻿@{
+    var trace = this.Trace;
+    if (trace is null)
+    {
+        if (!this.IsSmallMode)
+        {
+            <h1>
+                Unknown Trace
+            </h1>
+        }
+
+        return;
+    }
+}
+
+<div class="trace @(this.IsSmallMode ? "small" : "full")">
+    @if (!this.IsSmallMode)
+    {
+        <h1>
+            <a href="/">Traces</a> / @(trace.RootSpan?.Name ?? trace.Id)
+        </h1>
+    }
+
+    <div class="commands inline-controls">
+        @if (this.IsSmallMode)
+        {
+            <a href="traces/@Uri.EscapeDataString(this.TraceId)">
+                Full View
+            </a>
+        }
+
+        <label class="inline-control">
+            <input type="checkbox" checked="@(this.GroupSpans ?? true)" @onchange="this.GroupSpans_Change" />
+            <span>
+                Group Spans
+            </span>
+        </label>
+    </div>
+
+    <canvas @ref="this.TraceFlameCanvas"
+            width="@(this.IsSmallMode ? 900 : 1100)"
+            height="@(this.IsSmallMode ? 500 : 1000)"
+            data-span-color-selector="@this.EffectiveSpanColorSelector" />
+
+    <div class="info">
+        @if (this.SelectedSpan is not null)
+        {
+            <dl class="span-info">
+                <dt>Name</dt>
+                <dd class="name">
+                    @this.SelectedSpan.Name
+                </dd>
+                <dt>Start</dt>
+                <dd class="duration">
+                    @(this.SelectedSpan.StartTime - trace.Start)
+                </dd>
+                <dt>Duration</dt>
+                <dd class="duration">
+                    @(this.SelectedSpan.EndTime - this.SelectedSpan.StartTime)
+                </dd>
+                <dt>Kind</dt>
+                <dd class="kind">
+                    @this.SelectedSpan.Kind
+                </dd>
+                <dt>Parent</dt>
+                <dd class="parent">
+                    @(trace.Spans.FirstOrDefault(s => s.Id == this.SelectedSpan.ParentSpanId)?.Name)
+                </dd>
+                @if (!string.IsNullOrEmpty(this.SelectedSpan.StatusMessage))
+                {
+                    <dt>Message</dt>
+                    <dd class="status-message">
+                        @this.SelectedSpan.StatusMessage
+                    </dd>
+                }
+                @foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key))
+                {
+                    <dt>
+                        @spanAttribute.Key
+                    </dt>
+                    <dd class="value">
+                        @spanAttribute.Value
+                    </dd>
+                }
+            </dl>
+
+            @if (this.SelectedSpan.Events.Length > 0)
+            {
+                <h2>
+                    Events
+                </h2>
+                <div class="events">
+                    @foreach (var spanEvent in this.SelectedSpan.Events)
+                    {
+                        <dl class="event span-info">
+                            <dt>Name</dt>
+                            <dd class="name">
+                                @spanEvent.Name
+                            </dd>
+                            <dt>Time</dt>
+                            <dd class="time">
+                                @spanEvent.Time
+                            </dd>
+                            @foreach (var eventAttribute in spanEvent.Attributes)
+                            {
+                                <dt class="key">
+                                    @eventAttribute.Key
+                                </dt>
+                                <dd class="value">
+                                    @eventAttribute.Value
+                                </dd>
+                            }
+                        </dl>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>

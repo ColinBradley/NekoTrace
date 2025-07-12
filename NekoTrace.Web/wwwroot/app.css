@@ -73,10 +73,17 @@ input {
 	gap: 1em;
 }
 
-.inline {
+.inline-control {
 	display: flex;
 	flex-direction: row;
 	gap: .5em;
+}
+
+.inline-controls {
+	display: flex;
+	flex-direction: row;
+	gap: 2ch;
+	padding: .5em;
 }
 
 input[type=checkbox] {

@@ -11,13 +11,6 @@
     align-items: start;
 }
 
-.trace {
-    grid-row: 2;
-    grid-column: 2;
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
-}
-
 .trace-names, .has-error-options {
     display: flex;
     flex-direction: column;
@@ -29,12 +22,6 @@
         align-items: center;
         gap: .5em;
     }
-
-.events {
-    display: flex;
-    flex-direction: column;
-    gap: .5em;
-}
 
 ::deep .quickgrid {
     display: grid;
@@ -97,8 +84,4 @@
     background-color: black;
     max-height: 70vh;
     overflow: auto;
-}
-
-canvas {
-    background-color: #181818;
 }

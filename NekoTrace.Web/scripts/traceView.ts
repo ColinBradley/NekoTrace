@@ -3,13 +3,12 @@ import { type SpanData, StatusCode } from "./types.js";
 export function initialize(
     targetCanvas: HTMLCanvasElement & { traceRenderer: TraceRenderer },
     spans: SpanData[],
-    spanColorSelector: string,
     callbackObject: DotNetObjectReference,
     callbackName: string
 ) {
     const renderer = targetCanvas.traceRenderer ??= new TraceRenderer(targetCanvas);
 
-    renderer.setSpans(spans, spanColorSelector);
+    renderer.setSpans(spans);
     renderer.setSelectionChangedCallback(spanId => callbackObject.invokeMethodAsync(callbackName, spanId));
 }
 
@@ -38,10 +37,13 @@ const pleasingColors = [
     "#FF6B6B"
 ];
 
+const SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME = "data-span-color-selector";
+
 class TraceRenderer {
 
     private readonly canvasContext: CanvasRenderingContext2D;
     private readonly resizeObserver: ResizeObserver;
+    private readonly mutationObserver: MutationObserver;
     private readonly characterPixelWidth: number;
 
     private spans: SpanItem[] = [];
@@ -81,6 +83,9 @@ class TraceRenderer {
         this.resizeObserver = new ResizeObserver(this.canvasElement_resized);
         this.resizeObserver.observe(canvasElement);
 
+        this.mutationObserver = new MutationObserver(this.canvasElement_mutated);
+        this.mutationObserver.observe(canvasElement, { attributeFilter: [SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME] });
+
         this.canvasContext.font = `${FONT_SIZE}px monospace`;
         this.canvasContext.textBaseline = "middle";
 
@@ -91,7 +96,7 @@ class TraceRenderer {
         document.addEventListener("change", this.document_change);
     }
 
-    public setSpans(spans: SpanData[], spanColorSelector: string) {
+    public setSpans(spans: SpanData[]) {
         this.spans = spans.map(s => (
             {
                 ...s,
@@ -108,8 +113,6 @@ class TraceRenderer {
 
         let startMs = Number.MAX_VALUE;
         let endMs = Number.MIN_VALUE;
-        let spanColorIndex = 0;
-        const spanColorValues = new Map<unknown, string>();
 
         for (const span of this.spans) {
             if (span.startTimeMs < startMs) {
@@ -119,16 +122,6 @@ class TraceRenderer {
             if (span.endTimeMs > endMs) {
                 endMs = span.endTimeMs;
             }
-
-            const spanColorValue = span.attributes[spanColorSelector];
-            let spanColor = spanColorValues.get(spanColorValue);
-            if (spanColor === undefined) {
-                spanColor = pleasingColors[spanColorIndex] ?? "black";
-                spanColorValues.set(spanColorValue, spanColor);
-                spanColorIndex++;
-            }
-
-            span.color = spanColor;
 
             if (span.parentSpanId === undefined) {
                 continue;
@@ -145,6 +138,9 @@ class TraceRenderer {
         this.durationMs = endMs - startMs;
 
         this.arrangeSpans();
+        this.updateSpanColors();
+
+        this.render();
     }
 
     public setSelectionChangedCallback(callback: (spanId?: string) => Promise<void>) {
@@ -242,6 +238,13 @@ class TraceRenderer {
         this.render();
     }
 
+    private readonly canvasElement_mutated = (mutations: MutationRecord[]) => {
+        if (mutations.some(m => m.attributeName === SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME)) {
+            this.updateSpanColors();
+            this.render();
+        }
+    }
+
     private readonly document_change = () => {
         // Wait for the URL to update
         setTimeout(() => {
@@ -315,8 +318,24 @@ class TraceRenderer {
         }
 
         this.updateSpanLocations();
+    }
 
-        this.render();
+    private updateSpanColors() {
+        let spanColorIndex = 0;
+        const spanColorValues = new Map<unknown, string>();
+        const spanColorSelector = this.canvasElement.getAttribute(SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME) ?? "";
+
+        for (const span of this.spans) {
+            const spanColorValue = span.attributes[spanColorSelector];
+            let spanColor = spanColorValues.get(spanColorValue);
+            if (spanColor === undefined) {
+                spanColor = pleasingColors[spanColorIndex] ?? "black";
+                spanColorValues.set(spanColorValue, spanColor);
+                spanColorIndex++;
+            }
+
+            span.color = spanColor;
+        }
     }
 
     private render() {
@@ -359,10 +378,10 @@ class TraceRenderer {
             }
 
             if (span.pixelWidth > this.characterPixelWidth) {
-                const abosuluteTextLeft = this.left + Math.round(span.absolutePixelPositionX + SPAN_INNER_PADDING + SPAN_BORDER_WIDTH);
-                const abosuluteTextWidth = span.pixelWidth - (SPAN_BORDER_WIDTH * 2) - (SPAN_INNER_PADDING * 2);
-                const effectiveTextLeft = Math.max(0, abosuluteTextLeft);
-                const effectiveTextWidth = Math.min(this.canvasElement.width, this.canvasElement.width - abosuluteTextLeft, abosuluteTextWidth - (effectiveTextLeft - abosuluteTextLeft), abosuluteTextWidth);
+                const absoluteTextLeft = this.left + Math.round(span.absolutePixelPositionX + SPAN_INNER_PADDING + SPAN_BORDER_WIDTH);
+                const absoluteTextWidth = span.pixelWidth - (SPAN_BORDER_WIDTH * 2) - (SPAN_INNER_PADDING * 2);
+                const effectiveTextLeft = Math.max(0, absoluteTextLeft);
+                const effectiveTextWidth = Math.min(this.canvasElement.width, this.canvasElement.width - absoluteTextLeft, absoluteTextWidth - (effectiveTextLeft - absoluteTextLeft), absoluteTextWidth);
 
                 this.canvasContext.fillStyle = "white";
                 this.canvasContext.fillText(
