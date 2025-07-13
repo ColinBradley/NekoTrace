@@ -2,7 +2,6 @@ namespace NekoTrace.Web.UI.Pages;
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
-using Microsoft.JSInterop;
 using NekoTrace.Web.Repositories;
 using NekoTrace.Web.UI.Components;
 
@@ -41,7 +40,17 @@ public partial class Home : IDisposable
     [SupplyParameterFromQuery]
     private string? IgnoredTraceNames { get; set; }
 
-    private string EffectiveSpanColorSelector => this.SpanColorSelector ?? TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR;
+    [SupplyParameterFromQuery]
+    private string? CustomColumns { get; set; }
+
+    private string EffectiveSpanColorSelector =>
+        this.SpanColorSelector ?? TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR;
+
+    private string[] EffectiveCustomColumns =>
+        this.CustomColumns?.Split(';', StringSplitOptions.RemoveEmptyEntries) ?? [];
+
+    private string TracesGridStyle =>
+        $"grid-template-columns: min-content minmax(0, 1fr) min-content min-content min-content {string.Join(' ', this.EffectiveCustomColumns.Select(_ => "min-content"))};";
 
     private HashSet<string> IgnoredTraceNamesSet
     {
@@ -70,7 +79,8 @@ public partial class Home : IDisposable
 
     private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByAscending(t => t.Start);
 
-    private GridSort<Trace> TraceHasErrorGridSort { get; } = GridSort<Trace>.ByAscending(t => t.HasError);
+    private GridSort<Trace> TraceHasErrorGridSort { get; } =
+        GridSort<Trace>.ByAscending(t => t.HasError);
 
     private IEnumerable<string> TraceNames =>
         this
@@ -203,14 +213,52 @@ public partial class Home : IDisposable
     private void SpanColorSelector_Change(ChangeEventArgs e)
     {
         var newValue = e.Value as string;
-        if (string.IsNullOrWhiteSpace(newValue) || newValue is TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR)
+        if (
+            string.IsNullOrWhiteSpace(newValue)
+            || newValue is TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR
+        )
+        {
+            newValue = null;
+        }
+
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.SpanColorSelector), newValue),
+            replace: true
+        );
+    }
+
+    private string? NewColumnValue { get; set; }
+
+    private void AddColumnForm_Submit()
+    {
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(
+                nameof(this.CustomColumns),
+                string.Join(';', this.EffectiveCustomColumns.Concat([this.NewColumnValue]))
+            ),
+            replace: true
+        );
+
+        this.NewColumnValue = null;
+    }
+
+    private void RemoveColumnButton_Click(string columnName)
+    {
+        var newValue = string.Join(
+                    ';',
+                    this.EffectiveCustomColumns.Where(c =>
+                        !string.Equals(c, columnName, StringComparison.Ordinal)
+                    )
+                );
+
+        if (newValue.Length is 0)
         {
             newValue = null;
         }
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
-                nameof(this.SpanColorSelector),
+                nameof(this.CustomColumns),
                 newValue
             ),
             replace: true

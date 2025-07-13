@@ -61,15 +61,28 @@ label {
 
 button {
 	font-size: 1em;
+	padding: .1em 1em;
+	align-self: end;
 }
 
 input {
 	padding: .2em;
 }
 
-.inputs {
+form {
+	padding: 1em;
+}
+
+.controls {
 	display: flex;
 	flex-direction: column;
+	gap: 1em;
+}
+
+.inline-controls {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
 	gap: 1em;
 }
 
@@ -77,13 +90,6 @@ input {
 	display: flex;
 	flex-direction: row;
 	gap: .5em;
-}
-
-.inline-controls {
-	display: flex;
-	flex-direction: row;
-	gap: 2ch;
-	padding: .5em;
 }
 
 input[type=checkbox] {

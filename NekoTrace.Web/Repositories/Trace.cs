@@ -22,6 +22,20 @@ public sealed record Trace
 
     public bool HasError { get; private set; }
 
+    public string? TryGetRootSpanAttribute(string name)
+    {
+        return this.RootSpan?.Attributes.TryGetValue(name, out var value) is true
+            ? value switch
+            {
+                string stringValue => stringValue,
+                bool v => v.ToString(),
+                int v => v.ToString(),
+                double v => v.ToString(),
+                _ => null,
+            }
+            : null;
+    }
+
     internal void AddSpan(SpanData span)
     {
         mLock.EnterWriteLock();

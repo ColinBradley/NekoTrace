@@ -12,13 +12,12 @@
                 Traces
             </a>
         </h1>
-        <div>
+        <div class="inline-controls">
             <label>
                 <span>
                     Span Color Selector
                 </span>
-                <input type="text"
-                       value="@this.EffectiveSpanColorSelector"
+                <input value="@this.EffectiveSpanColorSelector"
                        @onchange="this.SpanColorSelector_Change"
                        list="common-span-attributes-items" />
                 <datalist id="common-span-attributes-items">
@@ -28,6 +27,31 @@
                     }
                 </datalist>
             </label>
+            <button id="add-column-option-button"
+                    popovertarget="add-column-popover">
+                Add Column…
+            </button>
+            <div id="add-column-popover"
+                 anchor="add-column-option-button"
+                 popover
+                 style="position-area: y-end;">
+                <form class="controls"
+                      @onsubmit="this.AddColumnForm_Submit">
+                    <label>
+                        <span>
+                            Value
+                        </span>
+                        <input @bind="this.NewColumnValue"
+                               @bind:event="oninput"
+                               autofocus
+                               list="common-span-attributes-items" />
+                    </label>
+                    <button type="submit"
+                            disabled="@(string.IsNullOrWhiteSpace(this.NewColumnValue))">
+                        Add
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -36,7 +60,8 @@
                    Virtualize="true"
                    Theme="dark"
                    ItemKey="t => t.Id"
-                   ItemSize="28">
+                   ItemSize="28" 
+                   style="@this.TracesGridStyle">
 
             <TemplateColumn Title="Start Time"
                             SortBy="this.TraceStartGridSort"
@@ -112,7 +137,7 @@
                             Sortable="true"
                             Align="Align.Right">
                 <ColumnOptions>
-                    <div class="inputs">
+                    <div class="controls">
                         <label>
                             <span>
                                 Min
@@ -131,7 +156,7 @@
                             Sortable="true"
                             Align="Align.Right">
                 <ColumnOptions>
-                    <div class="inputs">
+                    <div class="controls">
                         <label>
                             <span>
                                 Min (seconds)
@@ -155,6 +180,22 @@
                     </div>
                 </ColumnOptions>
             </PropertyColumn>
+
+            @foreach (var customColumn in this.EffectiveCustomColumns)
+            {
+                <PropertyColumn Title="@customColumn"
+                                Property="@(t => t.TryGetRootSpanAttribute(customColumn))"
+                                Sortable="true"
+                                Align="Align.Right">
+                    <ColumnOptions>
+                        <div class="controls">
+                            <button @onclick="() => this.RemoveColumnButton_Click(customColumn)">
+                                Remove
+                            </button>
+                        </div>
+                    </ColumnOptions>
+                </PropertyColumn>
+            }
         </QuickGrid>
     </div>
 
