@@ -17,11 +17,20 @@
     gap: .3em;
 }
 
+    .trace-names label:hover {
+        background-color: rgba(255, 255, 255, 30%);
+    }
+
     .trace-names label, .has-error-options label {
         flex-direction: row;
         align-items: center;
         gap: .5em;
     }
+
+        .trace-names span.count {
+            flex-grow: 1;
+            text-align: right;
+        }
 
 ::deep .quickgrid {
     display: grid;
@@ -50,6 +59,7 @@
     overflow: hidden;
     padding: .3em;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 ::deep .quickgrid tbody tr {

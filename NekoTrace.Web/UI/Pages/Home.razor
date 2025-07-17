@@ -76,12 +76,15 @@
             <TemplateColumn Title="Name" Align="Align.Right">
                 <ColumnOptions>
                     <div class="trace-names">
-                        @foreach (var name in this.TraceNames)
+                        @foreach (var nameCount in this.TraceNamesWithCounts)
                         {
                             <label>
-                                <input type="checkbox" @onchange="() => this.ToggleTraceNameFilter(name)" checked="@(!this.IgnoredTraceNamesSet.Contains(name))" />
+                                <input type="checkbox" @onchange="() => this.ToggleTraceNameFilter(nameCount.Name)" checked="@(!this.IgnoredTraceNamesSet.Contains(nameCount.Name))" />
                                 <span>
-                                    @name
+                                    @nameCount.Name
+                                </span>
+                                <span class="count">
+                                    @nameCount.Count
                                 </span>
                             </label>
                         }
@@ -89,7 +92,8 @@
                 </ColumnOptions>
 
                 <ChildContent>
-                    <NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.TraceId), context.Id), new(nameof(TraceViewComponent.SelectedSpanId), null)]))">
+                    <NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.TraceId), context.Id), new(nameof(TraceViewComponent.SelectedSpanId), null)]))"
+                             title="@(context.RootSpan?.Name ?? context.Id)">
                         @(context.RootSpan?.Name ?? context.Id)
                     </NavLink>
                 </ChildContent>

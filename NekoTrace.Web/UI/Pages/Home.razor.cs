@@ -10,7 +10,6 @@ public partial class Home : IDisposable
     private readonly HashSet<string> mIgnoredTraceNamesSet = new(StringComparer.OrdinalIgnoreCase);
     private string? mIgnoredTraceNamesRaw = null;
 
-    private DateTimeOffset mLastRefreshed = DateTimeOffset.UtcNow;
     private bool mHasPendingRefresh = false;
 
     [Inject]
@@ -82,12 +81,14 @@ public partial class Home : IDisposable
     private GridSort<Trace> TraceHasErrorGridSort { get; } =
         GridSort<Trace>.ByAscending(t => t.HasError);
 
-    private IEnumerable<string> TraceNames =>
-        this
-            .TracesRepo.Traces.Where(t => t.RootSpan != null)
+    private IEnumerable<(string Name, int Count)> TraceNamesWithCounts =>
+        this.TracesRepo.Traces
+            .AsEnumerable()
+            .Where(t => t.RootSpan != null)
             .Select(t => t.RootSpan!.Name)
-            .Distinct()
-            .Order();
+            .GroupBy(n => n, StringComparer.Ordinal)
+            .Select(g => (g.Key, g.Count()))
+            .OrderBy(g => g.Key);
 
     private IQueryable<Trace> FilteredTraces =>
         this
@@ -117,21 +118,14 @@ public partial class Home : IDisposable
 
     private async void TracesRepo_TracesChanged(string traceId)
     {
-        if (mLastRefreshed < DateTimeOffset.UtcNow.AddSeconds(-0.5))
+        if (!Interlocked.Exchange(ref mHasPendingRefresh, true))
         {
-            mLastRefreshed = DateTimeOffset.UtcNow;
-            Interlocked.Exchange(ref mHasPendingRefresh, false);
-
             await this.InvokeAsync(this.StateHasChanged);
-        }
-        else if (!Interlocked.Exchange(ref mHasPendingRefresh, true))
-        {
+
             await Task.Delay(500);
 
-            mLastRefreshed = DateTimeOffset.UtcNow;
-            Interlocked.Exchange(ref mHasPendingRefresh, false);
-
             await this.InvokeAsync(this.StateHasChanged);
+            Interlocked.Exchange(ref mHasPendingRefresh, false);
         }
     }
 
