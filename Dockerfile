@@ -6,10 +6,17 @@ WORKDIR /app
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
+
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
+    apt-get install -y nodejs
+
 WORKDIR /src
 COPY ["NekoTrace.Web/NekoTrace.Web.csproj", "NekoTrace.Web/"]
+COPY "Directory.Packages.props" .
 RUN dotnet restore "./NekoTrace.Web/NekoTrace.Web.csproj"
-COPY . .
+COPY "NekoTrace.Web/" "NekoTrace.Web/"
 WORKDIR "/src/NekoTrace.Web"
 RUN dotnet build "./NekoTrace.Web.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
@@ -22,4 +29,8 @@ RUN dotnet publish "./NekoTrace.Web.csproj" -c $BUILD_CONFIGURATION -o /app/publ
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+EXPOSE 4137
+EXPOSE 8347
+
 ENTRYPOINT ["dotnet", "NekoTrace.Web.dll"]
