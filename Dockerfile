@@ -30,7 +30,7 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
-EXPOSE 4137
 EXPOSE 8347
+EXPOSE 4137
 
 ENTRYPOINT ["dotnet", "NekoTrace.Web.dll"]
