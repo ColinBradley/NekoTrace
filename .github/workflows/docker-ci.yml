@@ -22,8 +22,3 @@ jobs:
         tags: |
           colinbradley/nekotrace:${{ github.sha }}
           colinbradley/nekotrace:nightly
-    - uses: actions/attest-build-provenance@v2.4.0
-      with:
-        subject-name: index.docker.io/colinbradley/nekotrace
-        subject-digest: ${{ steps.push.outputs.digest }}
-        push-to-registry: true
