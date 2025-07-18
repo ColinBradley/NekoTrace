@@ -20,7 +20,6 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: |
-          colinbradley/nekotrace:$(date +%s)
           colinbradley/nekotrace:${{ github.sha }}
           colinbradley/nekotrace:nightly
     - uses: actions/attest-build-provenance@v2.4.0
