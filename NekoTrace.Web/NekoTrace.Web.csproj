@@ -18,12 +18,5 @@
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" />
     </ItemGroup>
-
-    <PropertyGroup>
-        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-        <DockerfileRunArguments>-p 8080:8080 -p 8081:8081 -p 4317:4317</DockerfileRunArguments>
-    </PropertyGroup>
-
 </Project>

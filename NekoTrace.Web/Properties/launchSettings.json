@@ -8,10 +8,6 @@
       },
       "dotnetRunMessages": true
     },
-    "Container (Dockerfile)": {
-      "commandName": "Docker",
-      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}"
-    },
     "WSL": {
       "commandName": "WSL2",
       "launchBrowser": true,
