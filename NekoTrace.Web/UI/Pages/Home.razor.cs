@@ -4,11 +4,15 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories;
 using NekoTrace.Web.UI.Components;
+using System.Collections.Immutable;
 
 public partial class Home : IDisposable
 {
-    private readonly HashSet<string> mIgnoredTraceNamesSet = new(StringComparer.OrdinalIgnoreCase);
+    private ImmutableHashSet<string> mIgnoredTraceNamesSet = [];
     private string? mIgnoredTraceNamesRaw = null;
+
+    private ImmutableHashSet<string> mExclusiveTraceNamesSet = [];
+    private string? mExclusiveTraceNamesRaw = null;
 
     private bool mHasPendingRefresh = false;
 
@@ -40,6 +44,9 @@ public partial class Home : IDisposable
     private string? IgnoredTraceNames { get; set; }
 
     [SupplyParameterFromQuery]
+    private string? ExclusiveTraceNames { get; set; }
+
+    [SupplyParameterFromQuery]
     private string? CustomColumns { get; set; }
 
     private string EffectiveSpanColorSelector =>
@@ -51,7 +58,7 @@ public partial class Home : IDisposable
     private string TracesGridStyle =>
         $"grid-template-columns: min-content minmax(0, 1fr) min-content min-content min-content {string.Join(' ', this.EffectiveCustomColumns.Select(_ => "min-content"))};";
 
-    private HashSet<string> IgnoredTraceNamesSet
+    private ImmutableHashSet<string> IgnoredTraceNamesSet
     {
         get
         {
@@ -63,16 +70,31 @@ public partial class Home : IDisposable
                 )
             )
             {
-                mIgnoredTraceNamesSet.Clear();
-                foreach (var traceName in this.IgnoredTraceNames?.Split('|') ?? [])
-                {
-                    mIgnoredTraceNamesSet.Add(traceName);
-                }
-
+                mIgnoredTraceNamesSet = [.. this.IgnoredTraceNames?.Split('|') ?? []];
                 mIgnoredTraceNamesRaw = this.IgnoredTraceNames;
             }
 
             return mIgnoredTraceNamesSet;
+        }
+    }
+
+    private ImmutableHashSet<string> ExclusiveTraceNamesSet
+    {
+        get
+        {
+            if (
+                !string.Equals(
+                    this.ExclusiveTraceNames,
+                    mExclusiveTraceNamesRaw,
+                    StringComparison.Ordinal
+                )
+            )
+            {
+                mExclusiveTraceNamesSet = [.. this.ExclusiveTraceNames?.Split('|') ?? []];
+                mExclusiveTraceNamesRaw = this.ExclusiveTraceNames;
+            }
+
+            return mExclusiveTraceNamesSet;
         }
     }
 
@@ -91,8 +113,8 @@ public partial class Home : IDisposable
             .OrderBy(g => g.Key);
 
     private IQueryable<Trace> FilteredTraces =>
-        this
-            .TracesRepo.Traces.Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
+        this.TracesRepo.Traces
+            .Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
             .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
             .Where(t => (this.DurationMaximum ?? double.MaxValue) >= t.Duration.TotalSeconds)
             .Where(t => this.HasError == null || t.HasError == this.HasError)
@@ -100,11 +122,15 @@ public partial class Home : IDisposable
                 t.RootSpan == null
                 || this.IgnoredTraceNames == null
                 || !this.IgnoredTraceNames.Contains(t.RootSpan!.Name)
+            )
+            .Where(t =>
+                this.ExclusiveTraceNames == null
+                || (t.RootSpan != null && this.ExclusiveTraceNamesSet.Contains(t.RootSpan.Name))
             );
 
     private IEnumerable<string> RootSpanAttributeKeys =>
-        this
-            .TracesRepo.Traces.SelectMany(t =>
+        this.TracesRepo.Traces
+            .SelectMany(t =>
                 t.RootSpan == null ? Array.Empty<string>() : t.RootSpan.Attributes.Keys.ToArray()
             )
             .Distinct(StringComparer.OrdinalIgnoreCase);
@@ -239,11 +265,11 @@ public partial class Home : IDisposable
     private void RemoveColumnButton_Click(string columnName)
     {
         var newValue = string.Join(
-                    ';',
-                    this.EffectiveCustomColumns.Where(c =>
-                        !string.Equals(c, columnName, StringComparison.Ordinal)
-                    )
-                );
+            ';',
+            this.EffectiveCustomColumns.Where(c =>
+                !string.Equals(c, columnName, StringComparison.Ordinal)
+            )
+        );
 
         if (newValue.Length is 0)
         {
@@ -251,31 +277,7 @@ public partial class Home : IDisposable
         }
 
         this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(
-                nameof(this.CustomColumns),
-                newValue
-            ),
-            replace: true
-        );
-    }
-
-    private void ToggleTraceNameFilter(string traceName)
-    {
-        var set = this.IgnoredTraceNamesSet;
-        if (!set.Add(traceName))
-        {
-            set.Remove(traceName);
-        }
-
-        mIgnoredTraceNamesRaw = string.Join('|', set.Order(StringComparer.Ordinal));
-
-        this.IgnoredTraceNames = mIgnoredTraceNamesRaw;
-
-        this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(
-                nameof(this.IgnoredTraceNames),
-                this.IgnoredTraceNames
-            ),
+            this.Navigation.GetUriWithQueryParameter(nameof(this.CustomColumns), newValue),
             replace: true
         );
     }

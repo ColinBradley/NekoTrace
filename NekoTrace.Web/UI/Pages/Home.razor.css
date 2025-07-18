@@ -17,20 +17,35 @@
     gap: .3em;
 }
 
-    .trace-names label:hover {
-        background-color: rgba(255, 255, 255, 30%);
+    .trace-names .trace-name-toggle {
+        padding: .1em;
     }
 
-    .trace-names label, .has-error-options label {
+    .trace-names a {
+        text-decoration: none;
+    }
+
+        .trace-names a:hover {
+            text-decoration: underline;
+        }
+
+    .trace-names .trace-name-toggle, .has-error-options label {
+        display: flex;
         flex-direction: row;
         align-items: center;
         gap: .5em;
     }
 
-        .trace-names span.count {
-            flex-grow: 1;
-            text-align: right;
-        }
+    .trace-names .toggler {
+        width: 1em;
+        transform: scale(1.5);
+    }
+    
+    .trace-names .count {
+        font-size: .8em;
+        flex-grow: 1;
+        text-align: right;
+    }
 
 ::deep .quickgrid {
     display: grid;
