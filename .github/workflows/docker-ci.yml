@@ -1,0 +1,30 @@
+name: Docker CI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/login-action@v3.4.0
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PAT }}
+    - uses: docker/build-push-action@v6.18.0
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: |
+          colinbradley/nekotrace:$(date +%s)
+          colinbradley/nekotrace:${{ github.sha }}
+          colinbradley/nekotrace:nightly
+    - uses: actions/attest-build-provenance@v2.4.0
+      with:
+        subject-name: index.docker.io/colinbradley/nekotrace
+        subject-digest: ${{ steps.push.outputs.digest }}
+        push-to-registry: true
