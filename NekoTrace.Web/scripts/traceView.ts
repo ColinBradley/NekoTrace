@@ -19,23 +19,7 @@ const SPAN_BORDER_WIDTH = 2;
 const SPAN_HEIGHT_TOTAL = SPAN_HEIGHT_INNER + (SPAN_BORDER_WIDTH * 2);
 const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL;
 
-const pleasingColors = [
-    "#3A4B33",
-    "#61594F",
-    "#3F4F44",
-    "#8E5E37",
-    "#004487",
-    "#2A9D8F",
-    "#00BFFF",
-    "#4C4C9D",
-    "#A8D676",
-    "#5917bc",
-    "#E9C46A",
-    "#9B5DE5",
-    "#457B9D",
-    "#D946EF",
-    "#FF6B6B"
-];
+const TIME_LINE_HEIGHT = FONT_SIZE + SPAN_INNER_PADDING;
 
 const SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME = "data-span-color-selector";
 
@@ -52,7 +36,7 @@ class TraceRenderer {
     private durationMs = 0;
 
     private zoomRatio = 1;
-    private top = 0;
+    private top = TIME_LINE_HEIGHT;
     private left = 0;
 
     private isPanning = false;
@@ -95,6 +79,33 @@ class TraceRenderer {
 
         document.addEventListener("change", this.document_change);
     }
+
+    public spanErrorOverlayColor = "rgba(255, 0, 0, .8)";
+    public spanParentOverlayColor = "rgba(0, 0, 0, .3)";
+    public spanActiveBorderColor = "#dd8451";
+    public spanTextColor = "#FFF";
+    public timeOffsetTextColor = "#FFF";
+    public timeLineColor = "#FFF6";
+    public hoverTextBackgroundColor = "#0009";
+    public hoverTextColor = "#FFF";
+
+    public spanBackgroundColors = [
+        "#3A4B33",
+        "#61594F",
+        "#3F4F44",
+        "#8E5E37",
+        "#004487",
+        "#2A9D8F",
+        "#00BFFF",
+        "#4C4C9D",
+        "#A8D676",
+        "#5917bc",
+        "#E9C46A",
+        "#9B5DE5",
+        "#457B9D",
+        "#D946EF",
+        "#FF6B6B"
+    ];
 
     public setSpans(spans: SpanData[]) {
         this.spans = spans.map(s => (
@@ -183,7 +194,7 @@ class TraceRenderer {
     private readonly canvasElement_dblclick = () => {
         // Reset
         this.zoomRatio = 1;
-        this.top = 0;
+        this.top = TIME_LINE_HEIGHT;
         this.left = 0;
         this.selectedSpan = undefined;
         this.selectedSpansParents.clear();
@@ -329,7 +340,7 @@ class TraceRenderer {
             const spanColorValue = span.attributes[spanColorSelector];
             let spanColor = spanColorValues.get(spanColorValue);
             if (spanColor === undefined) {
-                spanColor = pleasingColors[spanColorIndex] ?? "black";
+                spanColor = this.spanBackgroundColors[spanColorIndex] ?? "black";
                 spanColorValues.set(spanColorValue, spanColor);
                 spanColorIndex++;
             }
@@ -340,6 +351,8 @@ class TraceRenderer {
 
     private render() {
         this.canvasContext.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
+
+        this.canvasContext.textBaseline = "middle";
 
         for (const span of this.spans) {
             const isHot = span === this.hotSpan;
@@ -353,20 +366,17 @@ class TraceRenderer {
             this.renderSpanBackground(span);
 
             if (span.statusCode === StatusCode.Error) {
-                this.canvasContext.fillStyle = "rgba(255, 0, 0, .8)"
+                this.canvasContext.fillStyle = this.spanErrorOverlayColor;
                 this.renderSpanBackground(span);
             }
 
             if (isParent) {
-                this.canvasContext.fillStyle = "rgba(0, 0, 0, .3)"
+                this.canvasContext.fillStyle = this.spanParentOverlayColor;
                 this.renderSpanBackground(span);
             }
 
             if (isHot || isSelected) {
-                this.canvasContext.strokeStyle =
-                    isSelected || isHot
-                        ? "#dd8451"
-                        : "#aa653e";
+                this.canvasContext.strokeStyle = this.spanActiveBorderColor;
 
                 this.canvasContext.lineWidth = SPAN_BORDER_WIDTH;
                 this.canvasContext.strokeRect(
@@ -383,7 +393,7 @@ class TraceRenderer {
                 const effectiveTextLeft = Math.max(0, absoluteTextLeft);
                 const effectiveTextWidth = Math.min(this.canvasElement.width, this.canvasElement.width - absoluteTextLeft, absoluteTextWidth - (effectiveTextLeft - absoluteTextLeft), absoluteTextWidth);
 
-                this.canvasContext.fillStyle = "white";
+                this.canvasContext.fillStyle = this.spanTextColor;
                 this.canvasContext.fillText(
                     this.fitString(span.name, effectiveTextWidth),
                     effectiveTextLeft,
@@ -402,6 +412,64 @@ class TraceRenderer {
                 }
             }
         }
+
+        this.canvasContext.clearRect(0, 0, this.canvasElement.width, TIME_LINE_HEIGHT);
+        this.canvasContext.fillStyle = this.timeOffsetTextColor;
+
+        const segmentWidth = this.characterPixelWidth * 20;
+        const timeSegments = this.canvasElement.width / segmentWidth;
+        const msToPixels = (this.canvasElement.width / this.durationMs) * this.zoomRatio;
+        const timeWindowMs = this.canvasElement.width / msToPixels;
+
+        const getTimeText = (timeMs: number) =>
+            timeMs === 0
+                ? "0"
+                : timeWindowMs < 0.0001
+                    ? +(timeMs * 1000000).toFixed(3) + "ns"
+                    : timeWindowMs < 1
+                        ? +(timeMs * 1000).toFixed(3) + "µs"
+                        : timeWindowMs <= 1000
+                            ? +timeMs.toFixed(3) + "ms"
+                            : +(timeMs / 1000).toFixed(3) + "s";
+
+        for (let segmentIndex = 0; segmentIndex < timeSegments; segmentIndex++) {
+            const left = Math.round(segmentIndex * segmentWidth);
+            const timeMs = (left - this.left) / msToPixels;
+            this.canvasContext.fillRect(left, 0, 1, TIME_LINE_HEIGHT);
+
+            this.canvasContext.fillText(getTimeText(timeMs), segmentIndex * segmentWidth + 3, TIME_LINE_HEIGHT / 2);
+        }
+
+        if (this.pointerX >= 0) {
+            // Time line indicator
+            this.canvasContext.fillStyle = this.timeLineColor;
+            this.canvasContext.fillRect(this.pointerX, 0, 1, this.canvasElement.height);
+
+            // Time text
+            const timeText = getTimeText((this.pointerX - this.left) / msToPixels);
+
+            this.canvasContext.fillStyle = this.hoverTextBackgroundColor;
+            this.canvasContext.textBaseline = "bottom";
+            this.canvasContext.fillRect(this.pointerX + 1, this.pointerY - (FONT_SIZE * 1.1), (timeText.length + 2) * this.characterPixelWidth, FONT_SIZE);
+
+            this.canvasContext.fillStyle = this.hoverTextColor;
+            this.canvasContext.fillText(
+                timeText,
+                this.pointerX + this.characterPixelWidth,
+                this.pointerY
+            );
+
+            if (this.hotSpan !== undefined) {
+                this.canvasContext.fillStyle = this.hoverTextBackgroundColor;
+                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (FONT_SIZE * 2), (this.hotSpan.name.length + 2) * this.characterPixelWidth, FONT_SIZE);
+                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (FONT_SIZE * 3), (this.hotSpan.durationText.length + 2) * this.characterPixelWidth, FONT_SIZE);
+
+                this.canvasContext.fillStyle = this.hoverTextColor;
+                this.canvasContext.textBaseline = "top";
+                this.canvasContext.fillText(this.hotSpan.name, this.pointerX + this.characterPixelWidth, this.pointerY + (FONT_SIZE * 2));
+                this.canvasContext.fillText(this.hotSpan.durationText, this.pointerX + this.characterPixelWidth, this.pointerY + (FONT_SIZE * 3));
+            }
+        }
     }
 
     private renderSpanBackground(span: SpanItem) {
@@ -414,8 +482,7 @@ class TraceRenderer {
     }
 
     private updateSpanLocations() {
-        const elementWidth = this.canvasElement.width;
-        const msToPixels = (elementWidth / this.durationMs) * this.zoomRatio;
+        const msToPixels = (this.canvasElement.width / this.durationMs) * this.zoomRatio;
 
         for (const span of this.spans) {
             span.absolutePixelPositionX = (span.startTimeMs - this.startMs) * msToPixels;
