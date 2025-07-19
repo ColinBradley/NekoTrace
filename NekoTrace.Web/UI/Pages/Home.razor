@@ -115,7 +115,7 @@
 
 							<div class="trace-name-toggle @(isIncluded ? "included" : "excluded")">
 								<a href="@toggleHref" class="toggler">
-									@(isIncluded ? "-" : "+")
+									<input type="checkbox" checked="@isIncluded"/>
 								</a>
 								<a href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.IgnoredTraceNames), null), new(nameof(this.ExclusiveTraceNames), nameCount.Name)]))">
 									@nameCount.Name

@@ -17,18 +17,6 @@
     gap: .3em;
 }
 
-    .trace-names .trace-name-toggle {
-        padding: .1em;
-    }
-
-    .trace-names a {
-        text-decoration: none;
-    }
-
-        .trace-names a:hover {
-            text-decoration: underline;
-        }
-
     .trace-names .trace-name-toggle, .has-error-options label {
         display: flex;
         flex-direction: row;
@@ -36,11 +24,6 @@
         gap: .5em;
     }
 
-    .trace-names .toggler {
-        width: 1em;
-        transform: scale(1.5);
-    }
-    
     .trace-names .count {
         font-size: .8em;
         flex-grow: 1;
