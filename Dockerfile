@@ -31,6 +31,6 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 EXPOSE 8347
-EXPOSE 4137
+EXPOSE 4317
 
 ENTRYPOINT ["dotnet", "NekoTrace.Web.dll"]
