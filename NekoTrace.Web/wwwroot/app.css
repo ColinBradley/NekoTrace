@@ -22,9 +22,9 @@ a {
 	color: #758da3;
 }
 
-a.active {
-	color: #aecbe6;
-}
+	a.active {
+		color: #aecbe6;
+	}
 
 h1:focus {
 	outline: none;
@@ -59,15 +59,19 @@ label {
 	align-items: start;
 }
 
-button {
+button, input::file-selector-button {
 	font-size: 1em;
-	padding: .1em 1em;
+	padding: .2em 1em;
 	align-self: end;
 }
 
 input {
 	padding: .2em;
+	font-size: 1em;
 }
+	input[type=file] {
+		padding: 0;
+	}
 
 form {
 	padding: 1em;
@@ -82,7 +86,7 @@ form {
 .inline-controls {
 	display: flex;
 	flex-direction: row;
-	align-items: center;
+	align-items: end;
 	gap: 1em;
 }
 

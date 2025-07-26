@@ -20,6 +20,7 @@ const SPAN_HEIGHT_TOTAL = SPAN_HEIGHT_INNER + (SPAN_BORDER_WIDTH * 2);
 const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL;
 
 const TIME_LINE_HEIGHT = FONT_SIZE + SPAN_INNER_PADDING;
+const RESIZE_GRAB_WIDTH = 10;
 
 const SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME = "data-span-color-selector";
 
@@ -30,6 +31,8 @@ class TraceRenderer {
     private readonly mutationObserver: MutationObserver;
     private readonly characterPixelWidth: number;
 
+    private readonly sizeClass: "small" | "large";
+
     private spans: SpanItem[] = [];
 
     private startMs = 0;
@@ -39,6 +42,8 @@ class TraceRenderer {
     private top = TIME_LINE_HEIGHT;
     private left = 0;
 
+    private isResizingWidth = false;
+    private isResizingHeight = false;
     private isPanning = false;
     private pointerX = 0;
     private pointerY = 0;
@@ -71,13 +76,24 @@ class TraceRenderer {
         this.mutationObserver.observe(canvasElement, { attributeFilter: [SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME] });
 
         this.canvasContext.font = `${FONT_SIZE}px monospace`;
-        this.canvasContext.textBaseline = "middle";
-
+        
         this.characterPixelWidth = this.canvasContext.measureText('L').width;
 
         this.loadOptions();
 
         document.addEventListener("change", this.document_change);
+
+        this.sizeClass = this.canvasElement.parentElement?.classList.contains("small") ? "small" : "large";
+
+        const storedTraceViewWidth = localStorage.getItem("traceview.width." + this.sizeClass);
+        if (storedTraceViewWidth !== null) {
+            this.canvasElement.width = Number.parseInt(storedTraceViewWidth);
+        }
+
+        const storedTraceViewHeight = localStorage.getItem("traceview.height." + this.sizeClass);
+        if (storedTraceViewHeight !== null) {
+            this.canvasElement.height = Number.parseInt(storedTraceViewHeight);
+        }
     }
 
     public spanErrorOverlayColor = "rgba(255, 0, 0, .8)";
@@ -165,6 +181,23 @@ class TraceRenderer {
         if (this.isPanning) {
             this.left += e.movementX;
             this.top += e.movementY;
+        } else if (this.isResizingWidth || this.isResizingHeight) {
+            if (this.isResizingWidth) {
+                if (this.sizeClass === "small") {
+                    this.canvasElement.width -= e.movementX;
+                } else {
+                    this.canvasElement.width += e.movementX;
+                }
+
+                localStorage.setItem("traceview.width." + this.sizeClass, this.canvasElement.width.toString());
+            }
+            if (this.isResizingHeight) {
+                this.canvasElement.height += e.movementY;
+
+                localStorage.setItem("traceview.height." + this.sizeClass, this.canvasElement.height.toString());
+            }
+        } else {
+            this.canvasElement.style.cursor = this.getCursor();
         }
 
         this.setHotSpan();
@@ -174,8 +207,24 @@ class TraceRenderer {
 
     private readonly canvasElement_pointerdown = (e: PointerEvent) => {
         this.canvasElement.setPointerCapture(e.pointerId);
-        this.isPanning = true;
 
+        switch (this.canvasElement.style.cursor) {
+            case "nesw-resize":
+            case "nwse-resize":
+                this.isResizingWidth = true;
+                this.isResizingHeight = true;
+                break;
+            case "ew-resize":
+                this.isResizingWidth = true;
+                break;
+            case "ns-resize":
+                this.isResizingHeight = true;
+                break;
+            default:
+                this.isPanning = true;
+                break;
+        }
+        
         if (this.hotSpan !== undefined) {
             this.selectedSpan = this.hotSpan;
             populateParents(this.selectedSpansParents, this.selectedSpan);
@@ -185,9 +234,11 @@ class TraceRenderer {
     }
 
     private readonly canvasElement_pointerup = (e: PointerEvent) => {
-        if (this.isPanning) {
+        if (this.isPanning || this.isResizingWidth || this.isResizingHeight) {
             this.canvasElement.releasePointerCapture(e.pointerId);
             this.isPanning = false;
+            this.isResizingWidth = false;
+            this.isResizingHeight = false;
         }
     }
 
@@ -245,6 +296,9 @@ class TraceRenderer {
     }
 
     private readonly canvasElement_resized = () => {
+        // Weirdly, this gets unset with resizes
+        this.canvasContext.font = `${FONT_SIZE}px monospace`;
+
         this.updateSpanLocations();
         this.render();
     }
@@ -502,6 +556,33 @@ class TraceRenderer {
         }
 
         return value;
+    }
+
+    private getCursor() {
+        const locations: string[] = [];
+
+        if (this.pointerY >= (this.canvasElement.height - RESIZE_GRAB_WIDTH)) {
+            locations.push("bottom");
+        }
+        if (this.pointerX <= RESIZE_GRAB_WIDTH) {
+            locations.push("left");
+        } else if (this.pointerX >= (this.canvasElement.width - RESIZE_GRAB_WIDTH)) {
+            locations.push("right");
+        }
+
+        switch (locations.join("-")) {
+            case "left":
+            case "right":
+                return "ew-resize";
+            case "bottom":
+                return "ns-resize";
+            case "bottom-left":
+                return "nesw-resize";
+            case "bottom-right":
+                return "nwse-resize";
+            default:
+                return "auto";
+        }
     }
 }
 
