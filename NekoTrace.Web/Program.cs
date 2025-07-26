@@ -35,6 +35,7 @@ var webAppTask = Task.Run(async () =>
     builder.Services.AddSingleton(traces);
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+    builder.Services.AddControllers();
 
     var app = builder.Build();
 
@@ -42,6 +43,7 @@ var webAppTask = Task.Run(async () =>
 
     app.MapStaticAssets();
     app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+    app.MapControllers();
 
     await app.RunAsync();
 });

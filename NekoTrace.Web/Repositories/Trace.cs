@@ -40,12 +40,36 @@ public sealed record Trace
     {
         mLock.EnterWriteLock();
 
+        this.AddSpanCore(span);
+
+        mLock.ExitWriteLock();
+
+        this.Repository.OnTraceChanged(this);
+    }
+
+    internal void AddSpans(IEnumerable<SpanData> spans)
+    {
+        mLock.EnterWriteLock();
+
+        foreach (var span in spans)
+        {
+            this.AddSpanCore(span);
+        }
+
+        mLock.ExitWriteLock();
+
+        this.Repository.OnTraceChanged(this);
+    }
+
+    private void AddSpanCore(SpanData span)
+    {
         var insertIndex = this.Spans.FindIndex(s => s.StartTime >= span.StartTime);
 
         this.Spans = insertIndex >= 0 ? this.Spans.Insert(insertIndex, span) : this.Spans.Add(span);
-        this.HasError = this.Spans.Any(s =>
-            s.StatusCode is OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error
-        );
+
+        this.HasError =
+            this.HasError
+            || span.StatusCode is OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error;
 
         if (string.IsNullOrEmpty(span.ParentSpanId))
         {
@@ -69,9 +93,5 @@ public sealed record Trace
         {
             this.Duration = this.End - this.Start;
         }
-
-        mLock.ExitWriteLock();
-
-        this.Repository.OnTraceChanged(this);
     }
 }

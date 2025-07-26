@@ -29,6 +29,10 @@
             </a>
         }
 
+        <a href="/api/trace-files/@(Uri.EscapeDataString(this.TraceId)).json.gz" download>
+            Export
+        </a>
+
         <label class="inline-control">
             <input type="checkbox" checked="@(this.GroupSpans ?? true)" @onchange="this.GroupSpans_Change" />
             <span>
