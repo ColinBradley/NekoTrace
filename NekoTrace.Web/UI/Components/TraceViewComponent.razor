@@ -29,7 +29,7 @@
             </a>
         }
 
-        <a href="/api/trace-files/@(Uri.EscapeDataString(this.TraceId)).json.gz" download>
+        <a href="/api/trace-files/@Uri.EscapeDataString(this.TraceId)" download>
             Export
         </a>
 

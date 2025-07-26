@@ -16,7 +16,7 @@ public class TraceFilesController : ControllerBase
         mTraces = traces;
     }
 
-    [HttpGet("{traceId}.json.gz")]
+    [HttpGet("{traceId}")]
     public async Task DownloadTraceSpans(
         [FromRoute] string traceId,
         CancellationToken cancellationToken
@@ -30,7 +30,7 @@ public class TraceFilesController : ControllerBase
         }
 
         this.Response.ContentType = "application/gzip";
-        this.Response.Headers.ContentDisposition = "attachment";
+        this.Response.Headers.ContentDisposition = $"attachment; filename=\"NekoTrace-{traceId}.json.gz\"";
 
         await using var compressionStream = new GZipStream(
             this.Response.Body,
@@ -81,7 +81,7 @@ public class TraceFilesController : ControllerBase
             }
 
             var trace = mTraces.GetOrAddTrace(
-                Google.Protobuf.ByteString.CopyFromUtf8(uploadedTrace.Id)
+                Google.Protobuf.ByteString.FromBase64(uploadedTrace.Id)
             );
 
             trace.AddSpans(uploadedTrace.Spans);
