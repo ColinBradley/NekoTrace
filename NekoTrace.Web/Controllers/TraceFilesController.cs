@@ -1,9 +1,9 @@
 ﻿namespace NekoTrace.Web.Controllers;
 
-using System.IO.Compression;
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using NekoTrace.Web.Repositories;
+using System.IO.Compression;
+using System.Text.Json;
 
 [Route("api/trace-files")]
 [ApiController]
@@ -16,9 +16,10 @@ public class TraceFilesController : ControllerBase
         mTraces = traces;
     }
 
-    [HttpGet("{traceId}")]
+    // Note: we have to use query string as the ids are base64 and can include forward slashes. We could encode into decimal, but meh..
+    [HttpGet()]
     public async Task DownloadTraceSpans(
-        [FromRoute] string traceId,
+        [FromQuery] string traceId,
         CancellationToken cancellationToken
     )
     {
@@ -30,7 +31,7 @@ public class TraceFilesController : ControllerBase
         }
 
         this.Response.ContentType = "application/gzip";
-        this.Response.Headers.ContentDisposition = $"attachment; filename=\"NekoTrace-{traceId}.json.gz\"";
+        this.Response.Headers.ContentDisposition = $"attachment; filename=\"NekoTrace-{trace.Start:yyMMddTHHmmss}-{Uri.EscapeDataString(trace.RootSpan?.Name ?? traceId)}.json.gz\"";
 
         await using var compressionStream = new GZipStream(
             this.Response.Body,
