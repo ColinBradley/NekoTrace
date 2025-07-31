@@ -12,6 +12,8 @@ public sealed record Trace
 
     public ImmutableList<SpanData> Spans { get; private set; } = [];
 
+    public ImmutableDictionary<string, SpanData> SpansById { get; private set; } = ImmutableDictionary.Create<string, SpanData>(StringComparer.Ordinal);
+
     public SpanData? RootSpan { get; private set; }
 
     public DateTimeOffset Start { get; private set; } = DateTimeOffset.MaxValue;
@@ -63,9 +65,10 @@ public sealed record Trace
 
     private void AddSpanCore(SpanData span)
     {
-        var insertIndex = this.Spans.FindIndex(s => s.StartTime >= span.StartTime);
+        var insertIndex = this.Spans.FindLastIndex(s => s.StartTime < span.StartTime);
 
         this.Spans = insertIndex >= 0 ? this.Spans.Insert(insertIndex, span) : this.Spans.Add(span);
+        this.SpansById = this.SpansById.SetItem(span.Id, span);
 
         this.HasError =
             this.HasError

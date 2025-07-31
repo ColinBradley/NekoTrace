@@ -68,7 +68,10 @@
                 </dd>
                 <dt>Parent</dt>
                 <dd class="parent">
-                    @(trace.Spans.FirstOrDefault(s => s.Id == this.SelectedSpan.ParentSpanId)?.Name)
+                    @if (trace.SpansById.TryGetValue(this.SelectedSpan.ParentSpanId ?? string.Empty, out var parentSpan))
+                    {
+                        @parentSpan.Name
+                    }
                 </dd>
                 @if (!string.IsNullOrEmpty(this.SelectedSpan.StatusMessage))
                 {

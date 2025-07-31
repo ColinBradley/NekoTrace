@@ -1,9 +1,9 @@
 namespace NekoTrace.Web.UI.Components;
 
-using System.Collections.Immutable;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using NekoTrace.Web.Repositories;
+using System.Collections.Immutable;
 
 public partial class TraceViewComponent
 {
@@ -43,9 +43,10 @@ public partial class TraceViewComponent
     private Trace? Trace => this.TraceId is null ? null : this.TracesRepo.TryGetTrace(this.TraceId);
 
     private SpanData? SelectedSpan =>
-        this.Trace?.Spans.FirstOrDefault(s =>
-            string.Equals(s.Id, this.SelectedSpanId, StringComparison.Ordinal)
-        );
+        this.SelectedSpanId is not null
+        && (this.Trace?.SpansById.TryGetValue(this.SelectedSpanId, out var span) ?? false)
+            ? span
+            : null;
 
     private string EffectiveSpanColorSelector => this.SpanColorSelector ?? DEFAULT_SPAN_COLOR_SELECTOR;
 
