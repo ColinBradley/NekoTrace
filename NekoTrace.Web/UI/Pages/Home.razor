@@ -28,10 +28,12 @@
                     }
                 </datalist>
             </label>
+            
             <button id="add-column-option-button"
                     popovertarget="add-column-popover">
                 Add Column…
             </button>
+            
             <div id="add-column-popover"
                  anchor="add-column-option-button"
                  popover
@@ -53,6 +55,15 @@
                     </button>
                 </form>
             </div>
+
+            <label>
+                <span>
+                    Attribute Filter
+                </span>
+                <input value="@this.SpanAttributeFilter"
+                       @onchange="this.SpanAttributeFilter_Change" />
+            </label>
+
             <form method="POST"
                   action="/api/trace-files"
                   enctype="multipart/form-data"

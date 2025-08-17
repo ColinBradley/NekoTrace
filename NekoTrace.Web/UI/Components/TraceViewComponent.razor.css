@@ -4,6 +4,10 @@
 	grid-template-rows: min-content auto minmax(0, 1fr);
 }
 
+.commands {
+	padding: .5em;
+}
+
 .events {
 	display: flex;
 	flex-direction: column;
@@ -39,4 +43,20 @@ h1 {
 
 .full .info {
 	grid-row: 2 / -1;
+}
+
+hint-content {
+	display: none;
+	position: fixed;
+	padding: .5em;
+	background-color: canvas;
+	position-area: y-end;
+}
+
+hint-content ul {
+	padding-inline-start: 2ch;
+}
+
+hint:hover > hint-content {
+	display: block;
 }

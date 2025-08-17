@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories;
 using NekoTrace.Web.UI.Components;
 using System.Collections.Immutable;
+using System.Linq;
 
 public partial class Home : IDisposable
 {
@@ -13,6 +14,9 @@ public partial class Home : IDisposable
 
     private ImmutableHashSet<string> mExclusiveTraceNamesSet = [];
     private string? mExclusiveTraceNamesRaw = null;
+
+    private ImmutableDictionary<string, string> mSpanAttributeFilter = ImmutableDictionary<string, string>.Empty;
+    private string? mSpanAttributeFilterRaw = null;
 
     private bool mHasPendingRefresh = false;
 
@@ -49,6 +53,9 @@ public partial class Home : IDisposable
     [SupplyParameterFromQuery]
     private string? CustomColumns { get; set; }
 
+    [SupplyParameterFromQuery]
+    private string? SpanAttributeFilter { get; set; }
+
     private string EffectiveSpanColorSelector =>
         this.SpanColorSelector ?? TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR;
 
@@ -56,7 +63,7 @@ public partial class Home : IDisposable
         this.CustomColumns?.Split(';', StringSplitOptions.RemoveEmptyEntries) ?? [];
 
     private string TracesGridStyle =>
-        $"grid-template-columns: min-content minmax(0, 1fr) min-content min-content min-content {string.Join(' ', this.EffectiveCustomColumns.Select(_ => "min-content"))};";
+        $"grid-template-columns: min-content minmax(15ch, 1fr) min-content min-content min-content {string.Join(' ', this.EffectiveCustomColumns.Select(_ => "min-content"))};";
 
     private ImmutableHashSet<string> IgnoredTraceNamesSet
     {
@@ -75,6 +82,46 @@ public partial class Home : IDisposable
             }
 
             return mIgnoredTraceNamesSet;
+        }
+    }
+
+    private ImmutableDictionary<string, string> ParsedSpanAttributesFilter
+    {
+        get
+        {
+            if (
+                !string.Equals(
+                    this.SpanAttributeFilter,
+                    mSpanAttributeFilterRaw,
+                    StringComparison.Ordinal
+                )
+            )
+            {
+                if (!string.IsNullOrWhiteSpace(this.SpanAttributeFilter))
+                {
+                    mSpanAttributeFilter =
+                        ImmutableDictionary<string, string>
+                            .Empty
+                            .AddRange(
+                                this.SpanAttributeFilter
+                                    .Split(';')
+                                    .Select<string, KeyValuePair<string, string>?>(
+                                        f => f.Split(':') switch
+                                        {
+                                            [string k, string v] => new KeyValuePair<string, string>(k.Trim(), v.Trim()),
+                                            _ => null
+                                        }
+                                    )
+                                    .Where(p => p is not null)
+                                    .Select(p => p!.Value)
+                                    .DistinctBy(p => p.Key)
+                            );
+                }
+
+                mSpanAttributeFilterRaw = this.SpanAttributeFilter;
+            }
+
+            return mSpanAttributeFilter;
         }
     }
 
@@ -126,7 +173,8 @@ public partial class Home : IDisposable
             .Where(t =>
                 this.ExclusiveTraceNames == null
                 || (t.RootSpan != null && this.ExclusiveTraceNamesSet.Contains(t.RootSpan.Name))
-            );
+            )
+            .Where(t => this.TracePassesFilter(t));
 
     private IEnumerable<string> RootSpanAttributeKeys =>
         this.TracesRepo.Traces
@@ -247,6 +295,20 @@ public partial class Home : IDisposable
         );
     }
 
+    private void SpanAttributeFilter_Change(ChangeEventArgs e)
+    {
+        var newValue = e.Value as string;
+        if (string.IsNullOrWhiteSpace(newValue))
+        {
+            newValue = null;
+        }
+
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.SpanAttributeFilter), newValue),
+            replace: true
+        );
+    }
+
     private string? NewColumnValue { get; set; }
 
     private void AddColumnForm_Submit()
@@ -279,6 +341,29 @@ public partial class Home : IDisposable
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(nameof(this.CustomColumns), newValue),
             replace: true
+        );
+    }
+
+    private bool TracePassesFilter(Trace trace)
+    {
+        var parsedSpanAttributesFilter = this.ParsedSpanAttributesFilter;
+        if (parsedSpanAttributesFilter.Count is 0)
+        {
+            return true;
+        }
+
+        return trace.Spans.Any(s =>
+            parsedSpanAttributesFilter.Any(filterPair =>
+                s.Attributes.TryGetValue(
+                    filterPair.Key,
+                    out var spanAttributeValue
+                )
+                && string.Equals(
+                    filterPair.Value,
+                    spanAttributeValue?.ToString(),
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
         );
     }
 
