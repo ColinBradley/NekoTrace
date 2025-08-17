@@ -12,15 +12,15 @@ export function initialize(
     renderer.setSelectionChangedCallback(spanId => callbackObject.invokeMethodAsync(callbackName, spanId));
 }
 
-const FONT_SIZE = 14;
-const SPAN_INNER_PADDING = Math.round(FONT_SIZE * 0.2);
-const SPAN_HEIGHT_INNER = FONT_SIZE + (SPAN_INNER_PADDING * 2);
-const SPAN_BORDER_WIDTH = 2;
-const SPAN_HEIGHT_TOTAL = SPAN_HEIGHT_INNER + (SPAN_BORDER_WIDTH * 2);
+const FONT_SIZE = () => 14 * window.devicePixelRatio;
+const SPAN_INNER_PADDING = () => Math.round(FONT_SIZE() * 0.2);
+const SPAN_HEIGHT_INNER = () => FONT_SIZE() + (SPAN_INNER_PADDING() * 2);
+const SPAN_BORDER_WIDTH = () => 2 * window.devicePixelRatio;
+const SPAN_HEIGHT_TOTAL = () => SPAN_HEIGHT_INNER() + (SPAN_BORDER_WIDTH() * 2);
 const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL;
 
-const TIME_LINE_HEIGHT = FONT_SIZE + SPAN_INNER_PADDING;
-const RESIZE_GRAB_WIDTH = 10;
+const TIME_LINE_HEIGHT = () => FONT_SIZE() + SPAN_INNER_PADDING();
+const RESIZE_GRAB_WIDTH = () => 10 * window.devicePixelRatio;
 
 const SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME = "data-span-color-selector";
 
@@ -39,7 +39,7 @@ class TraceRenderer {
     private durationMs = 0;
 
     private zoomRatio = 1;
-    private top = TIME_LINE_HEIGHT;
+    private top = TIME_LINE_HEIGHT();
     private left = 0;
 
     private isResizingWidth = false;
@@ -75,7 +75,7 @@ class TraceRenderer {
         this.mutationObserver = new MutationObserver(this.canvasElement_mutated);
         this.mutationObserver.observe(canvasElement, { attributeFilter: [SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME] });
 
-        this.canvasContext.font = `${FONT_SIZE}px monospace`;
+        this.canvasContext.font = `${FONT_SIZE()}px monospace`;
         
         this.characterPixelWidth = this.canvasContext.measureText('L').width;
 
@@ -87,12 +87,16 @@ class TraceRenderer {
 
         const storedTraceViewWidth = localStorage.getItem("traceview.width." + this.sizeClass);
         if (storedTraceViewWidth !== null) {
-            this.canvasElement.width = Number.parseInt(storedTraceViewWidth);
+            const width = Number.parseInt(storedTraceViewWidth);
+            this.canvasElement.width = width * window.devicePixelRatio;
+            this.canvasElement.style.width = width + "px";
         }
 
         const storedTraceViewHeight = localStorage.getItem("traceview.height." + this.sizeClass);
         if (storedTraceViewHeight !== null) {
-            this.canvasElement.height = Number.parseInt(storedTraceViewHeight);
+            const height = Number.parseInt(storedTraceViewHeight);
+            this.canvasElement.height = height * window.devicePixelRatio;
+            this.canvasElement.style.height = height + "px";
         }
     }
 
@@ -175,26 +179,32 @@ class TraceRenderer {
     }
 
     private readonly canvasElement_pointermove = (e: PointerEvent) => {
-        this.pointerX = e.offsetX;
-        this.pointerY = e.offsetY;
+        this.pointerX = e.offsetX * window.devicePixelRatio;
+        this.pointerY = e.offsetY * window.devicePixelRatio;
 
         if (this.isPanning) {
             this.left += e.movementX;
             this.top += e.movementY;
         } else if (this.isResizingWidth || this.isResizingHeight) {
             if (this.isResizingWidth) {
+                let width = this.canvasElement.width / window.devicePixelRatio;
                 if (this.sizeClass === "small") {
-                    this.canvasElement.width -= e.movementX;
+                    width -= e.movementX / window.devicePixelRatio;
                 } else {
-                    this.canvasElement.width += e.movementX;
+                    width += e.movementX / window.devicePixelRatio;
                 }
 
-                localStorage.setItem("traceview.width." + this.sizeClass, this.canvasElement.width.toString());
+                this.canvasElement.style.width = width + "px";
+                this.canvasElement.width = width * window.devicePixelRatio;
+
+                localStorage.setItem("traceview.width." + this.sizeClass, width.toString());
             }
             if (this.isResizingHeight) {
-                this.canvasElement.height += e.movementY;
+                const height = (this.canvasElement.height + e.movementY) / window.devicePixelRatio;
+                this.canvasElement.style.height = height + "px";
+                this.canvasElement.height = height * window.devicePixelRatio;
 
-                localStorage.setItem("traceview.height." + this.sizeClass, this.canvasElement.height.toString());
+                localStorage.setItem("traceview.height." + this.sizeClass, height.toString());
             }
         } else {
             this.canvasElement.style.cursor = this.getCursor();
@@ -245,7 +255,7 @@ class TraceRenderer {
     private readonly canvasElement_dblclick = () => {
         // Reset
         this.zoomRatio = 1;
-        this.top = TIME_LINE_HEIGHT;
+        this.top = TIME_LINE_HEIGHT();
         this.left = 0;
         this.selectedSpan = undefined;
         this.selectedSpansParents.clear();
@@ -297,7 +307,7 @@ class TraceRenderer {
 
     private readonly canvasElement_resized = () => {
         // Weirdly, this gets unset with resizes
-        this.canvasContext.font = `${FONT_SIZE}px monospace`;
+        this.canvasContext.font = `${FONT_SIZE()}px monospace`;
 
         this.updateSpanLocations();
         this.render();
@@ -329,7 +339,7 @@ class TraceRenderer {
         this.hotSpan = this.spans.find(s => (this.left + s.absolutePixelPositionX) < this.pointerX
             && (this.left + s.absolutePixelPositionX + s.pixelWidth) > this.pointerX
             && (this.top + s.absolutePixelPositionY) < this.pointerY
-            && (this.top + s.absolutePixelPositionY + SPAN_HEIGHT_TOTAL) > this.pointerY
+            && (this.top + s.absolutePixelPositionY + SPAN_HEIGHT_TOTAL()) > this.pointerY
         );
 
         if (this.hotSpan === undefined) {
@@ -379,7 +389,7 @@ class TraceRenderer {
                 spansByRow.push([span]);
             }
 
-            span.absolutePixelPositionY = SPAN_ROW_OFFSET * span.rowIndex;
+            span.absolutePixelPositionY = SPAN_ROW_OFFSET() * span.rowIndex;
         }
 
         this.updateSpanLocations();
@@ -432,18 +442,18 @@ class TraceRenderer {
             if (isHot || isSelected) {
                 this.canvasContext.strokeStyle = this.spanActiveBorderColor;
 
-                this.canvasContext.lineWidth = SPAN_BORDER_WIDTH;
+                this.canvasContext.lineWidth = SPAN_BORDER_WIDTH();
                 this.canvasContext.strokeRect(
                     this.left + span.absolutePixelPositionX,
                     this.top + span.absolutePixelPositionY,
                     span.pixelWidth,
-                    SPAN_HEIGHT_TOTAL
+                    SPAN_HEIGHT_TOTAL()
                 );
             }
 
             if (span.pixelWidth > this.characterPixelWidth) {
-                const absoluteTextLeft = this.left + Math.round(span.absolutePixelPositionX + SPAN_INNER_PADDING + SPAN_BORDER_WIDTH);
-                const absoluteTextWidth = span.pixelWidth - (SPAN_BORDER_WIDTH * 2) - (SPAN_INNER_PADDING * 2);
+                const absoluteTextLeft = this.left + Math.round(span.absolutePixelPositionX + SPAN_INNER_PADDING() + SPAN_BORDER_WIDTH());
+                const absoluteTextWidth = span.pixelWidth - (SPAN_BORDER_WIDTH() * 2) - (SPAN_INNER_PADDING() * 2);
                 const effectiveTextLeft = Math.max(0, absoluteTextLeft);
                 const effectiveTextWidth = Math.min(this.canvasElement.width, this.canvasElement.width - absoluteTextLeft, absoluteTextWidth - (effectiveTextLeft - absoluteTextLeft), absoluteTextWidth);
 
@@ -451,7 +461,7 @@ class TraceRenderer {
                 this.canvasContext.fillText(
                     this.fitString(span.name, effectiveTextWidth),
                     effectiveTextLeft,
-                    this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL / 2)) + 2,
+                    this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL() / 2)) + 2,
                     effectiveTextWidth
                 );
 
@@ -460,14 +470,14 @@ class TraceRenderer {
                     this.canvasContext.fillText(
                         span.durationText,
                         (effectiveTextLeft + effectiveTextWidth) - durationTextWidth,
-                        this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL / 2)) + 2,
+                        this.top + Math.round(span.absolutePixelPositionY + (SPAN_HEIGHT_TOTAL() / 2)) + 2,
                         durationTextWidth
                     );
                 }
             }
         }
 
-        this.canvasContext.clearRect(0, 0, this.canvasElement.width, TIME_LINE_HEIGHT);
+        this.canvasContext.clearRect(0, 0, this.canvasElement.width, TIME_LINE_HEIGHT());
         this.canvasContext.fillStyle = this.timeOffsetTextColor;
 
         const segmentWidth = this.characterPixelWidth * 20;
@@ -489,9 +499,9 @@ class TraceRenderer {
         for (let segmentIndex = 0; segmentIndex < timeSegments; segmentIndex++) {
             const left = Math.round(segmentIndex * segmentWidth);
             const timeMs = (left - this.left) / msToPixels;
-            this.canvasContext.fillRect(left, 0, 1, TIME_LINE_HEIGHT);
+            this.canvasContext.fillRect(left, 0, 1, TIME_LINE_HEIGHT());
 
-            this.canvasContext.fillText(getTimeText(timeMs), segmentIndex * segmentWidth + 3, TIME_LINE_HEIGHT / 2);
+            this.canvasContext.fillText(getTimeText(timeMs), segmentIndex * segmentWidth + 3, TIME_LINE_HEIGHT() / 2);
         }
 
         if (this.pointerX >= 0) {
@@ -504,7 +514,7 @@ class TraceRenderer {
 
             this.canvasContext.fillStyle = this.hoverTextBackgroundColor;
             this.canvasContext.textBaseline = "top";
-            this.canvasContext.fillRect(this.pointerX + 1, 0, (timeText.length + 2) * this.characterPixelWidth, FONT_SIZE);
+            this.canvasContext.fillRect(this.pointerX + 1, 0, (timeText.length + 2) * this.characterPixelWidth, FONT_SIZE());
 
             this.canvasContext.fillStyle = this.hoverTextColor;
             this.canvasContext.fillText(
@@ -515,23 +525,23 @@ class TraceRenderer {
 
             if (this.hotSpan !== undefined) {
                 this.canvasContext.fillStyle = this.hoverTextBackgroundColor;
-                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (FONT_SIZE * 2), (this.hotSpan.name.length + 2) * this.characterPixelWidth, FONT_SIZE);
-                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (FONT_SIZE * 3), (this.hotSpan.durationText.length + 2) * this.characterPixelWidth, FONT_SIZE);
+                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (FONT_SIZE() * 2), (this.hotSpan.name.length + 2) * this.characterPixelWidth, FONT_SIZE());
+                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (FONT_SIZE() * 3), (this.hotSpan.durationText.length + 2) * this.characterPixelWidth, FONT_SIZE());
 
                 this.canvasContext.fillStyle = this.hoverTextColor;
                 this.canvasContext.textBaseline = "top";
-                this.canvasContext.fillText(this.hotSpan.name, this.pointerX + this.characterPixelWidth, this.pointerY + (FONT_SIZE * 2));
-                this.canvasContext.fillText(this.hotSpan.durationText, this.pointerX + this.characterPixelWidth, this.pointerY + (FONT_SIZE * 3));
+                this.canvasContext.fillText(this.hotSpan.name, this.pointerX + this.characterPixelWidth, this.pointerY + (FONT_SIZE() * 2));
+                this.canvasContext.fillText(this.hotSpan.durationText, this.pointerX + this.characterPixelWidth, this.pointerY + (FONT_SIZE() * 3));
             }
         }
     }
 
     private renderSpanBackground(span: SpanItem) {
         this.canvasContext.fillRect(
-            this.left + span.absolutePixelPositionX + SPAN_BORDER_WIDTH - 1,
-            this.top + span.absolutePixelPositionY + SPAN_BORDER_WIDTH - 1,
-            span.pixelWidth - (SPAN_BORDER_WIDTH * 2) + 2,
-            SPAN_HEIGHT_INNER + 2
+            this.left + span.absolutePixelPositionX + SPAN_BORDER_WIDTH() - 1,
+            this.top + span.absolutePixelPositionY + SPAN_BORDER_WIDTH() - 1,
+            span.pixelWidth - (SPAN_BORDER_WIDTH() * 2) + 2,
+            SPAN_HEIGHT_INNER() + 2
         );
     }
 
@@ -561,12 +571,12 @@ class TraceRenderer {
     private getCursor() {
         const locations: string[] = [];
 
-        if (this.pointerY >= (this.canvasElement.height - RESIZE_GRAB_WIDTH)) {
+        if (this.pointerY >= (this.canvasElement.height - RESIZE_GRAB_WIDTH())) {
             locations.push("bottom");
         }
-        if (this.pointerX <= RESIZE_GRAB_WIDTH) {
+        if (this.pointerX <= RESIZE_GRAB_WIDTH()) {
             locations.push("left");
-        } else if (this.pointerX >= (this.canvasElement.width - RESIZE_GRAB_WIDTH)) {
+        } else if (this.pointerX >= (this.canvasElement.width - RESIZE_GRAB_WIDTH())) {
             locations.push("right");
         }
 
