@@ -102,7 +102,7 @@ class TraceRenderer {
     public spanTextColor = "#FFF";
     public timeOffsetTextColor = "#FFF";
     public timeLineColor = "#FFF6";
-    public hoverTextBackgroundColor = "#0009";
+    public hoverTextBackgroundColor = "#0008";
     public hoverTextColor = "#FFF";
 
     public spanBackgroundColors = [
@@ -503,14 +503,14 @@ class TraceRenderer {
             const timeText = getTimeText((this.pointerX - this.left) / msToPixels);
 
             this.canvasContext.fillStyle = this.hoverTextBackgroundColor;
-            this.canvasContext.textBaseline = "bottom";
-            this.canvasContext.fillRect(this.pointerX + 1, this.pointerY - (FONT_SIZE * 1.1), (timeText.length + 2) * this.characterPixelWidth, FONT_SIZE);
+            this.canvasContext.textBaseline = "top";
+            this.canvasContext.fillRect(this.pointerX + 1, 0, (timeText.length + 2) * this.characterPixelWidth, FONT_SIZE);
 
             this.canvasContext.fillStyle = this.hoverTextColor;
             this.canvasContext.fillText(
                 timeText,
                 this.pointerX + this.characterPixelWidth,
-                this.pointerY
+                0
             );
 
             if (this.hotSpan !== undefined) {
