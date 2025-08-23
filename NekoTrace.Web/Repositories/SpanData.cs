@@ -6,6 +6,13 @@ using static OpenTelemetry.Proto.Trace.V1.Status.Types;
 
 public sealed record SpanData
 {
+    private readonly Lazy<TimeSpan> mDuration;
+
+    public SpanData()
+    {
+        mDuration = new(() => this.EndTime - this.StartTime, LazyThreadSafetyMode.None);
+    }
+
     public required string Id { get; init; }
 
     public required string? ParentSpanId { get; init; }
@@ -34,11 +41,13 @@ public sealed record SpanData
 
     public required ImmutableArray<Dictionary<string, object?>> Links { get; init; }
 
+    public TimeSpan Duration => mDuration.Value;
+
     public string DurationText
     {
         get
         {
-            var durationMs = this.EndTimeMs - this.StartTimeMs;
+            var durationMs = this.Duration.TotalMilliseconds;
             return durationMs switch
             {
                 < 1 => Math.Round(durationMs * 1000, 1) + "µs",

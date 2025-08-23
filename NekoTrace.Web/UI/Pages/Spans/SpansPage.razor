@@ -1,0 +1,187 @@
+﻿@page "/spans"
+
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using System.Collections.Immutable
+
+<PageTitle>Spans - NekoTrace</PageTitle>
+
+<div class="page">
+
+    <div style="display: flex; align-items: center; gap: 1em; grid-column: 1/3; padding: 1em;">
+        <h1>
+            <a href="/spans">
+                Spans
+            </a>
+        </h1>
+
+        <a href="/">
+            Traces
+        </a>
+
+        <div class="inline-controls">
+            <label class="inline-control" style="align-self: center;">
+                <input type="checkbox"
+                       value="@this.RootSpansOnly"
+                       @onchange="this.RootSpansOnly_Change" />
+                <span>
+                    Root only
+                </span>
+            </label>
+
+            <label>
+                <span>
+                    Attribute Filter
+                </span>
+                <input value="@this.SpanAttributeFilter"
+                       @onchange="this.SpanAttributeFilter_Change" />
+            </label>
+        </div>
+    </div>
+
+    <div class="spans">
+        <QuickGrid Items="this.FilteredSpans"
+                   Virtualize="true"
+                   Theme="dark"
+                   ItemKey="s => s.Name"
+                   ItemSize="28">
+
+            <TemplateColumn Title="Name"
+                            SortBy="this.SpanNameGridSort"
+                            Sortable="true"
+                            Align="Align.Right">
+                <ColumnOptions>
+                    <div class="span-names">
+                        @foreach (var spanRepository in this.TracesRepo.SpanRepositories)
+                        {
+                            bool isIncluded;
+                            string queryParameterName;
+                            ImmutableHashSet<string> newItems;
+                            if (this.ExclusiveSpanNames is null)
+                            {
+                                queryParameterName = nameof(this.IgnoredSpanNames);
+                                isIncluded = !this.IgnoredSpanNamesSet.Contains(spanRepository.Name);
+                                if (isIncluded)
+                                {
+                                    newItems = this.IgnoredSpanNamesSet.Add(spanRepository.Name);
+                                }
+                                else
+                                {
+                                    newItems = this.IgnoredSpanNamesSet.Remove(spanRepository.Name);
+                                }
+                            }
+                            else
+                            {
+                                queryParameterName = nameof(this.ExclusiveSpanNames);
+                                isIncluded = this.ExclusiveSpanNamesSet.Contains(spanRepository.Name);
+
+                                if (isIncluded)
+                                {
+                                    newItems = this.ExclusiveSpanNamesSet.Remove(spanRepository.Name);
+                                }
+                                else
+                                {
+                                    newItems = this.ExclusiveSpanNamesSet.Add(spanRepository.Name);
+                                }
+                            }
+
+                            var toggleHref = this.Navigation.GetUriWithQueryParameter(queryParameterName, newItems.Count is 0 ? null : string.Join('|', newItems));
+
+                            <div class="span-name-toggle @(isIncluded ? "included" : "excluded")">
+                                <a href="@toggleHref" class="toggler">
+                                    <input type="checkbox" checked="@isIncluded" />
+                                </a>
+                                <a href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.IgnoredSpanNames), null), new(nameof(this.ExclusiveSpanNames), spanRepository.Name)]))">
+                                    @spanRepository.Name
+                                </a>
+                                <span class="count">
+                                    @spanRepository.Spans.Count
+                                </span>
+                            </div>
+                        }
+                    </div>
+                </ColumnOptions>
+
+                <ChildContent>
+                    <a href="@($"/spans/{Uri.EscapeDataString(context.Name)}")"
+                       title="@context.Name">
+                        @context.Name
+                    </a>
+                </ChildContent>
+            </TemplateColumn>
+
+            <PropertyColumn Title="Spans"
+                            Property="@(t => t.Spans.Count)"
+                            Sortable="true" />
+
+            <TemplateColumn Title="Errors"
+                            SortBy="this.SpanErrorGridSort"
+                            Sortable="true"
+                            Align="Align.Right">
+                <ColumnOptions>
+                    <div class="has-error-options">
+                        <label>
+                            <input type="checkbox" @onchange="() => this.ToggleHasError(true)" checked="@(this.HasError is true)" />
+                            <span>
+                                True
+                            </span>
+                        </label>
+                        <label>
+                            <input type="checkbox" @onchange="() => this.ToggleHasError(false)" checked="@(this.HasError is false)" />
+                            <span>
+                                False
+                            </span>
+                        </label>
+                    </div>
+                </ColumnOptions>
+
+                <ChildContent>
+                    @{
+                        var errorClass = context.ErrorSpans.Count is > 0 ? "span-error-true" : "trace-error-false";
+                    }
+
+                    <span class="@errorClass">
+                        @context.ErrorSpans.Count
+                    </span>
+                </ChildContent>
+            </TemplateColumn>
+
+            <PropertyColumn Title="Average Duration"
+                            Property="@(s => s.AverageDuration)"
+                            Sortable="true"
+                            Align="Align.Right">
+                <ColumnOptions>
+                    <div class="controls">
+                        <label>
+                            <span>
+                                Min (seconds)
+                            </span>
+                            <input type="number"
+                                   value="@this.DurationMinimum"
+                                   min="0"
+                                   step="0.01"
+                                   @onchange="this.DurationMinimum_Change" />
+                        </label>
+                        <label>
+                            <span>
+                                Max (seconds)
+                            </span>
+                            <input type="number"
+                                   value="@this.DurationMaximum"
+                                   min="0.0001"
+                                   step="0.1"
+                                   @onchange="this.DurationMaximum_Change" />
+                        </label>
+                    </div>
+                </ColumnOptions>
+            </PropertyColumn>
+
+            <PropertyColumn Title="Min Duration"
+                            Property="@(t => t.MinDuration)"
+                            Sortable="true" />
+
+            <PropertyColumn Title="Max Duration"
+                            Property="@(t => t.MaxDuration)"
+                            Sortable="true" />
+        </QuickGrid>
+    </div>
+</div>

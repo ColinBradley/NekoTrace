@@ -1,29 +1,34 @@
 ﻿namespace NekoTrace.Web.Repositories;
 
 using Google.Protobuf;
+using System.Collections.Concurrent;
 
 public class TracesRepository
 {
-    private readonly ReaderWriterLockSlim mLock = new();
+    private readonly ReaderWriterLockSlim mTracesLock = new();
 
     private readonly Dictionary<string, Trace> mTracesById = [];
+    private readonly ConcurrentDictionary<string, SpanRepository> mSpansByName = [];
 
     public event Action<string>? TracesChanged;
 
     public IQueryable<Trace> Traces { get; private set; } =
         Array.Empty<Trace>().AsQueryable();
 
+    public IEnumerable<SpanRepository> SpanRepositories =>
+        mSpansByName.Values;
+
     internal Trace GetOrAddTrace(ByteString traceId)
     {
         var stringId = traceId.ToBase64();
 
-        mLock.EnterUpgradeableReadLock();
+        mTracesLock.EnterUpgradeableReadLock();
 
         try
         {
             if (!mTracesById.TryGetValue(stringId, out var trace))
             {
-                mLock.EnterWriteLock();
+                mTracesLock.EnterWriteLock();
 
                 if (!mTracesById.TryGetValue(stringId, out trace))
                 {
@@ -31,20 +36,20 @@ public class TracesRepository
                     this.Traces = mTracesById.Values.ToArray().AsQueryable();
                 }
 
-                mLock.ExitWriteLock();
+                mTracesLock.ExitWriteLock();
             }
 
             return trace;
         }
         finally
         {
-            mLock.ExitUpgradeableReadLock();
+            mTracesLock.ExitUpgradeableReadLock();
         }
     }
 
     internal Trace? TryGetTrace(string id)
     {
-        mLock.EnterReadLock();
+        mTracesLock.EnterReadLock();
 
         try
         {
@@ -54,8 +59,18 @@ public class TracesRepository
         }
         finally
         {
-            mLock.ExitReadLock();
+            mTracesLock.ExitReadLock();
         }
+    }
+
+    internal void AddSpan(SpanData span)
+    {
+        mSpansByName
+            .GetOrAdd(
+                span.Name, 
+                (_) => new SpanRepository()
+            )
+            .AddSpan(span);
     }
 
     internal void OnTraceChanged(Trace trace)

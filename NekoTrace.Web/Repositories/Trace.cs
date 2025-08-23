@@ -96,5 +96,7 @@ public sealed record Trace
         {
             this.Duration = this.End - this.Start;
         }
+
+        this.Repository.AddSpan(span);
     }
 }
