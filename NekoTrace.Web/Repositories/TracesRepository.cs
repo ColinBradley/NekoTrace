@@ -1,22 +1,31 @@
 ﻿namespace NekoTrace.Web.Repositories;
 
 using Google.Protobuf;
+using NekoTrace.Web.Configuration;
 using System.Collections.Concurrent;
 
-public class TracesRepository
+public class TracesRepository : IDisposable
 {
+    private readonly ConfigurationManager mConfiguration;
+    private readonly Timer mTrimTimer;
+
     private readonly ReaderWriterLockSlim mTracesLock = new();
 
     private readonly Dictionary<string, Trace> mTracesById = [];
     private readonly ConcurrentDictionary<string, SpanRepository> mSpansByName = [];
 
-    public event Action<string>? TracesChanged;
+    public TracesRepository(ConfigurationManager configuration)
+    {
+        mConfiguration = configuration;
+        mTrimTimer = new Timer(this.mTrimTimer_Tick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+    }
+
+    public event Action? TracesChanged;
 
     public IQueryable<Trace> Traces { get; private set; } =
         Array.Empty<Trace>().AsQueryable();
 
-    public IEnumerable<SpanRepository> SpanRepositories =>
-        mSpansByName.Values;
+    public IReadOnlyDictionary<string, SpanRepository> SpanRepositoriesByName => mSpansByName;
 
     internal Trace GetOrAddTrace(ByteString traceId)
     {
@@ -73,8 +82,81 @@ public class TracesRepository
             .AddSpan(span);
     }
 
-    internal void OnTraceChanged(Trace trace)
+    internal void OnTraceChanged()
     {
-        this.TracesChanged?.Invoke(trace.Id);
+        this.TracesChanged?.Invoke();
+    }
+
+    private void mTrimTimer_Tick(object? _)
+    {
+        var nekoTraceConfig = new NekoTraceConfiguration();
+        mConfiguration.Bind("NekoTrace", nekoTraceConfig);
+
+        var maxSpanAge = nekoTraceConfig?.MaxSpanAge;
+        if (maxSpanAge is null)
+        {
+            return;
+        }
+
+        var oldTime = DateTimeOffset.Now.Subtract(maxSpanAge.Value);
+
+        mTracesLock.EnterUpgradeableReadLock();
+
+        try
+        {
+            var tracesToRemove = mTracesById.Values
+                .Where(t => t.Start < oldTime)
+                .ToArray();
+
+            if (tracesToRemove.Length is 0)
+            {
+                return;
+            }
+
+            mTracesLock.EnterWriteLock();
+
+            try
+            {
+                foreach(var oldTrace in tracesToRemove)
+                {
+                    mTracesById.Remove(oldTrace.Id);
+
+                    foreach (var oldSpan in  oldTrace.Spans)
+                    {
+                        if (!mSpansByName.TryGetValue(oldSpan.Name, out var spanRepository))
+                        {
+                            continue;
+                        }
+
+                        spanRepository.RemoveSpan(oldSpan);
+
+                        if (spanRepository.Spans.Count is 0)
+                        {
+                            mSpansByName.TryRemove(new KeyValuePair<string, SpanRepository>(oldSpan.Name, spanRepository));
+                        }
+                    }
+                }
+
+                this.Traces = mTracesById.Values.ToArray().AsQueryable();
+            }
+            finally
+            {
+                mTracesLock.ExitWriteLock();
+            }
+        } 
+        finally
+        {
+            mTracesLock.ExitUpgradeableReadLock();
+        }
+        
+        this.TracesChanged?.Invoke();
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+
+        mTrimTimer.Dispose();
+        mConfiguration.Dispose();
     }
 }

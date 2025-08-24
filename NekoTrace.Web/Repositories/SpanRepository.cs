@@ -84,4 +84,28 @@ public class SpanRepository
             mLock.ExitWriteLock();
         }
     }
+
+    internal void RemoveSpan(SpanData span)
+    {
+        mLock.EnterWriteLock();
+
+        try
+        {
+            this.Spans = this.Spans.Remove(span);
+
+            if (span.StatusCode is StatusCode.Error)
+                this.ErrorSpans = this.ErrorSpans.Remove(span);
+
+            var duration = span.Duration;
+            if (duration == this.MinDuration && this.Spans.Count > 0)
+                this.MinDuration = this.Spans.Min(s => s.Duration);
+
+            if (duration == this.MaxDuration && this.Spans.Count > 0)
+                this.MaxDuration = this.Spans.Max(s => s.Duration);
+        }
+        finally
+        {
+            mLock.ExitWriteLock();
+        }
+    }
 }

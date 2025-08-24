@@ -46,7 +46,7 @@ public sealed record Trace
 
         mLock.ExitWriteLock();
 
-        this.Repository.OnTraceChanged(this);
+        this.Repository.OnTraceChanged();
     }
 
     internal void AddSpans(IEnumerable<SpanData> spans)
@@ -60,7 +60,7 @@ public sealed record Trace
 
         mLock.ExitWriteLock();
 
-        this.Repository.OnTraceChanged(this);
+        this.Repository.OnTraceChanged();
     }
 
     private void AddSpanCore(SpanData span)

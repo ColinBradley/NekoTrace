@@ -51,7 +51,7 @@
                             Align="Align.Right">
                 <ColumnOptions>
                     <div class="span-names">
-                        @foreach (var spanRepository in this.TracesRepo.SpanRepositories)
+                        @foreach (var spanRepository in this.TracesRepo.SpanRepositoriesByName.Values)
                         {
                             bool isIncluded;
                             string queryParameterName;

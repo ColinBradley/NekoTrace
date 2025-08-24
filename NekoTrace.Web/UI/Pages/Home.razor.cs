@@ -1,11 +1,11 @@
 namespace NekoTrace.Web.UI.Pages;
 
+using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories;
 using NekoTrace.Web.UI.Components;
-using System.Collections.Immutable;
-using System.Linq;
 
 public partial class Home : IDisposable
 {
@@ -15,7 +15,10 @@ public partial class Home : IDisposable
     private ImmutableHashSet<string> mExclusiveTraceNamesSet = [];
     private string? mExclusiveTraceNamesRaw = null;
 
-    private ImmutableDictionary<string, string> mSpanAttributeFilter = ImmutableDictionary<string, string>.Empty;
+    private ImmutableDictionary<string, string> mSpanAttributeFilter = ImmutableDictionary<
+        string,
+        string
+    >.Empty;
     private string? mSpanAttributeFilterRaw = null;
 
     private bool mHasPendingRefresh = false;
@@ -99,23 +102,22 @@ public partial class Home : IDisposable
             {
                 if (!string.IsNullOrWhiteSpace(this.SpanAttributeFilter))
                 {
-                    mSpanAttributeFilter =
-                        ImmutableDictionary<string, string>
-                            .Empty
-                            .AddRange(
-                                this.SpanAttributeFilter
-                                    .Split(';')
-                                    .Select<string, KeyValuePair<string, string>?>(
-                                        f => f.Split(':') switch
-                                        {
-                                            [string k, string v] => new KeyValuePair<string, string>(k.Trim(), v.Trim()),
-                                            _ => null
-                                        }
-                                    )
-                                    .Where(p => p is not null)
-                                    .Select(p => p!.Value)
-                                    .DistinctBy(p => p.Key)
-                            );
+                    mSpanAttributeFilter = ImmutableDictionary<string, string>.Empty.AddRange(
+                        this.SpanAttributeFilter.Split(';')
+                            .Select<string, KeyValuePair<string, string>?>(f =>
+                                f.Split(':') switch
+                                {
+                                    [string k, string v] => new KeyValuePair<string, string>(
+                                        k.Trim(),
+                                        v.Trim()
+                                    ),
+                                    _ => null,
+                                }
+                            )
+                            .Where(p => p is not null)
+                            .Select(p => p!.Value)
+                            .DistinctBy(p => p.Key)
+                    );
                 }
 
                 mSpanAttributeFilterRaw = this.SpanAttributeFilter;
@@ -190,7 +192,7 @@ public partial class Home : IDisposable
         this.TracesRepo.TracesChanged += this.TracesRepo_TracesChanged;
     }
 
-    private async void TracesRepo_TracesChanged(string traceId)
+    private async void TracesRepo_TracesChanged()
     {
         if (!Interlocked.Exchange(ref mHasPendingRefresh, true))
         {
@@ -205,14 +207,11 @@ public partial class Home : IDisposable
 
     private void DurationMinimum_Change(ChangeEventArgs e)
     {
-        if (double.TryParse(e.Value as string, out var value) && value is > 0)
-        {
-            this.DurationMinimum = value;
-        }
-        else
-        {
-            this.DurationMinimum = null;
-        }
+        this.DurationMinimum =
+            double.TryParse(e.Value as string, out var value) 
+            && value is > 0 
+                ? value 
+                : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
@@ -225,14 +224,11 @@ public partial class Home : IDisposable
 
     private void DurationMaximum_Change(ChangeEventArgs e)
     {
-        if (double.TryParse(e.Value as string, out var value) && value is > 0)
-        {
-            this.DurationMaximum = value;
-        }
-        else
-        {
-            this.DurationMaximum = null;
-        }
+        this.DurationMaximum = 
+            double.TryParse(e.Value as string, out var value) 
+            && value is > 0 
+                ? value 
+                : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
@@ -245,14 +241,11 @@ public partial class Home : IDisposable
 
     private void SpansMinimum_Change(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value as string, out var value) && value is > 1)
-        {
-            this.SpansMinimum = value;
-        }
-        else
-        {
-            this.SpansMinimum = null;
-        }
+        this.SpansMinimum = 
+            int.TryParse(e.Value as string, out var value) 
+            && value is > 1 
+                ? value 
+                : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(nameof(this.SpansMinimum), this.SpansMinimum),
@@ -354,10 +347,7 @@ public partial class Home : IDisposable
 
         return trace.Spans.Any(s =>
             parsedSpanAttributesFilter.Any(filterPair =>
-                s.Attributes.TryGetValue(
-                    filterPair.Key,
-                    out var spanAttributeValue
-                )
+                s.Attributes.TryGetValue(filterPair.Key, out var spanAttributeValue)
                 && string.Equals(
                     filterPair.Value,
                     spanAttributeValue?.ToString(),

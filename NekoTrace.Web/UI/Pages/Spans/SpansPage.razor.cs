@@ -90,7 +90,7 @@ public partial class SpansPage : IDisposable
         GridSort<SpanRepository>.ByAscending(s => s.Name);
 
     private IQueryable<SpanRepository> FilteredSpans =>
-        this.TracesRepo.SpanRepositories
+        this.TracesRepo.SpanRepositoriesByName.Values
             .AsQueryable()
             .Where(s => this.RootSpansOnly == null || !this.RootSpansOnly.Value || s.IsRootSpan)
             .Where(s => (this.DurationMinimum ?? 0) <= s.MinDuration.TotalSeconds)
@@ -112,7 +112,7 @@ public partial class SpansPage : IDisposable
         this.TracesRepo.TracesChanged += this.TracesRepo_TracesChanged;
     }
 
-    private async void TracesRepo_TracesChanged(string traceId)
+    private async void TracesRepo_TracesChanged()
     {
         if (!Interlocked.Exchange(ref mHasPendingRefresh, true))
         {
@@ -127,14 +127,11 @@ public partial class SpansPage : IDisposable
 
     private void DurationMinimum_Change(ChangeEventArgs e)
     {
-        if (double.TryParse(e.Value as string, out var value) && value is > 0)
-        {
-            this.DurationMinimum = value;
-        }
-        else
-        {
-            this.DurationMinimum = null;
-        }
+        this.DurationMinimum =
+            double.TryParse(e.Value as string, out var value)
+            && value is > 0
+                ? value
+                : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
@@ -147,14 +144,11 @@ public partial class SpansPage : IDisposable
 
     private void DurationMaximum_Change(ChangeEventArgs e)
     {
-        if (double.TryParse(e.Value as string, out var value) && value is > 0)
-        {
-            this.DurationMaximum = value;
-        }
-        else
-        {
-            this.DurationMaximum = null;
-        }
+        this.DurationMaximum =
+            double.TryParse(e.Value as string, out var value)
+            && value is > 0
+                ? value
+                : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
@@ -186,7 +180,7 @@ public partial class SpansPage : IDisposable
     private void RootSpansOnly_Change(ChangeEventArgs e)
     {
         var newValue = e.Value as bool? ?? false;
-        
+
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(nameof(this.RootSpansOnly), newValue ? newValue : null),
             replace: true

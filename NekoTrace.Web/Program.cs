@@ -1,24 +1,41 @@
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using NekoTrace.Web.Configuration;
 using NekoTrace.Web.GrpcServices;
 using NekoTrace.Web.Repositories;
 using NekoTrace.Web.UI;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 
-var traces = new TracesRepository();
+var configFilePath = Path.Combine(
+    Environment.GetFolderPath(
+        Environment.SpecialFolder.Personal,
+        Environment.SpecialFolderOption.DoNotVerify
+    ),
+    ".nekotrace",
+    "config.json"
+);
+
+Console.WriteLine($"Config path: {configFilePath}");
+
+var webAppBuilder = WebApplication.CreateBuilder(args);
+webAppBuilder.Configuration.AddJsonFile(configFilePath, optional: true, reloadOnChange: true);
+
+webAppBuilder.Services.Configure<NekoTraceConfiguration>(webAppBuilder.Configuration.GetSection("NekoTrace"));
+
+var traces = new TracesRepository(webAppBuilder.Configuration);
 
 var collectorAppTask = Task.Run(async () =>
 {
-    var builder = WebApplication.CreateBuilder(args);
-    builder.Configuration.Sources.Clear();
+    var collectorAppBuilder = WebApplication.CreateBuilder(args);
+    collectorAppBuilder.Configuration.Sources.Clear();
 
-    builder.Services.AddGrpc();
+    collectorAppBuilder.Services.AddGrpc();
 
-    builder.Services.AddSingleton(traces);
+    collectorAppBuilder.Services.AddSingleton(traces);
 
-    builder.WebHost.ConfigureKestrel(o =>
+    collectorAppBuilder.WebHost.ConfigureKestrel(o =>
         o.ListenAnyIP(4317, c => c.Protocols = HttpProtocols.Http2)
     );
 
-    var app = builder.Build();
+    var app = collectorAppBuilder.Build();
 
     app.MapGrpcService<LogsServiceImplementation>();
     app.MapGrpcService<MetricsServiceImplementation>();
@@ -30,14 +47,12 @@ var collectorAppTask = Task.Run(async () =>
 
 var webAppTask = Task.Run(async () =>
 {
-    var builder = WebApplication.CreateBuilder(args);
+    webAppBuilder.Services.AddSingleton(traces);
+    webAppBuilder.Services.AddHttpContextAccessor();
+    webAppBuilder.Services.AddRazorComponents().AddInteractiveServerComponents();
+    webAppBuilder.Services.AddControllers();
 
-    builder.Services.AddSingleton(traces);
-    builder.Services.AddHttpContextAccessor();
-    builder.Services.AddRazorComponents().AddInteractiveServerComponents();
-    builder.Services.AddControllers();
-
-    var app = builder.Build();
+    var app = webAppBuilder.Build();
 
     app.UseAntiforgery();
 
