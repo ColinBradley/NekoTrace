@@ -1,0 +1,197 @@
+﻿@page "/spans/{SpanName}"
+
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using System.Collections.Immutable
+
+<PageTitle>Span: @this.SpanName - NekoTrace</PageTitle>
+
+<div class="page">
+
+    <div style="display: flex; align-items: center; gap: 1em; grid-column: 1/3; padding: 1em;">
+        <h1>
+            <a href="@this.Navigation.GetUriWithQueryParameter("TraceId", (string?)null)">
+                @this.SpanName
+            </a>
+        </h1>
+        
+        <a href="/">
+            Traces
+        </a>
+
+        <a href="/spans">
+            Spans
+        </a>
+
+        <label>
+            <span>
+                Span Color Selector
+            </span>
+            <input value="@this.EffectiveSpanColorSelector"
+                   @onchange="this.SpanColorSelector_Change"
+                   list="common-span-attributes-items" />
+            <datalist id="common-span-attributes-items">
+                @foreach (var spanAttributeKey in this.SpanAttributeKeys)
+                {
+                    <option>@spanAttributeKey</option>
+                }
+            </datalist>
+        </label>
+
+        <div class="inline-controls">
+            <button id="add-column-option-button"
+                    popovertarget="add-column-popover">
+                Add Column…
+            </button>
+            
+            <div id="add-column-popover"
+                 anchor="add-column-option-button"
+                 popover
+                 style="position-area: y-end;">
+                <form class="controls"
+                      @onsubmit="this.AddColumnForm_Submit">
+                    <label>
+                        <span>
+                            Value
+                        </span>
+                        <input @bind="this.NewColumnValue"
+                               @bind:event="oninput"
+                               autofocus
+                               list="common-span-attributes-items" />
+                    </label>
+                    <button type="submit"
+                            disabled="@(string.IsNullOrWhiteSpace(this.NewColumnValue))">
+                        Add
+                    </button>
+                </form>
+            </div>
+
+            <label>
+                <span>
+                    Attribute Filter
+                </span>
+                <input value="@this.SpanAttributeFilter"
+                       @onchange="this.SpanAttributeFilter_Change" />
+            </label>
+        </div>
+    </div>
+
+    <div class="traces">
+        <QuickGrid Items="this.FilteredSpans"
+                   Virtualize="true"
+                   Theme="dark"
+                   ItemKey="t => t.Id"
+                   ItemSize="28"
+                   style="@this.TracesGridStyle">
+
+            <TemplateColumn Title="Start Time"
+                            SortBy="this.TraceStartGridSort"
+                            Sortable="true"
+                            IsDefaultSortColumn="true"
+                            InitialSortDirection="SortDirection.Descending">
+                <div>
+                    @context.StartTime.ToString("HH:mm:ss.fff")
+                </div>
+            </TemplateColumn>
+
+            <TemplateColumn Title="Trace Name">
+                <ChildContent>
+                    @{
+                        var trace = this.TracesRepo.TryGetTrace(context.TraceId);
+                    }
+                    <NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.TraceId), context.TraceId), new(nameof(TraceViewComponent.SelectedSpanId), context.Id)]))"
+                             title="@(trace?.RootSpan?.Name ?? context.TraceId)">
+                        @(trace?.RootSpan?.Name ?? context.TraceId)
+                    </NavLink>
+                </ChildContent>
+            </TemplateColumn>
+
+            <TemplateColumn Title="Has Error"
+                            SortBy="this.SpanHasErrorGridSort"
+                            Sortable="true"
+                            Align="Align.Right">
+                <ColumnOptions>
+                    <div class="has-error-options">
+                        <label>
+                            <input type="checkbox" @onchange="() => this.ToggleHasError(true)" checked="@(this.HasError is true)" />
+                            <span>
+                                True
+                            </span>
+                        </label>
+                        <label>
+                            <input type="checkbox" @onchange="() => this.ToggleHasError(false)" checked="@(this.HasError is false)" />
+                            <span>
+                                False
+                            </span>
+                        </label>
+                    </div>
+                </ColumnOptions>
+
+                <ChildContent>
+                    @if (context.StatusCode is OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error)
+                    {
+                        <span class="trace-error-true">
+                            true
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="trace-error-false">
+                            false
+                        </span>
+                    }
+                </ChildContent>
+            </TemplateColumn>
+
+            <PropertyColumn Title="Duration"
+                            Property="@(t => t.Duration)"
+                            Sortable="true"
+                            Align="Align.Right">
+                <ColumnOptions>
+                    <div class="controls">
+                        <label>
+                            <span>
+                                Min (seconds)
+                            </span>
+                            <input type="number"
+                                   value="@this.DurationMinimum"
+                                   min="0"
+                                   step="0.01"
+                                   @onchange="this.DurationMinimum_Change" />
+                        </label>
+                        <label>
+                            <span>
+                                Max (seconds)
+                            </span>
+                            <input type="number"
+                                   value="@this.DurationMaximum"
+                                   min="0.0001"
+                                   step="0.1"
+                                   @onchange="this.DurationMaximum_Change" />
+                        </label>
+                    </div>
+                </ColumnOptions>
+            </PropertyColumn>
+
+            @foreach (var customColumn in this.EffectiveCustomColumns)
+            {
+                <PropertyColumn Title="@customColumn"
+                                Property="@(s => s.TryGetAttributeValue(customColumn))"
+                                Sortable="true"
+                                Align="Align.Right">
+                    <ColumnOptions>
+                        <div class="controls">
+                            <button @onclick="() => this.RemoveColumnButton_Click(customColumn)">
+                                Remove
+                            </button>
+                        </div>
+                    </ColumnOptions>
+                </PropertyColumn>
+            }
+        </QuickGrid>
+    </div>
+
+    <!-- Note: Ideally, this is conditionally rendered, but https://github.com/dotnet/aspnetcore/issues/57746 causes us to not dynamically use components with [SupplyParameterFromQuery] -->
+    <TraceViewComponent TraceId="@this.TraceId"
+                        SpanColorSelector="@this.SpanColorSelector"
+                        IsSmallMode="true" />
+</div>

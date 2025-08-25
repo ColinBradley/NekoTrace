@@ -64,6 +64,7 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
     {
         return new SpanData()
         {
+            TraceId = span.TraceId.ToBase64(),
             Id = span.SpanId.ToBase64(),
             ParentSpanId = span.ParentSpanId.IsEmpty ? null : span.ParentSpanId.ToBase64(),
             Name = span.Name,

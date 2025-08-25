@@ -1,4 +1,4 @@
-namespace NekoTrace.Web.UI.Pages;
+namespace NekoTrace.Web.UI.Pages.Spans;
 
 using System.Collections.Immutable;
 using System.Linq;
@@ -7,14 +7,8 @@ using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories;
 using NekoTrace.Web.UI.Components;
 
-public partial class Home : IDisposable
+public partial class SpanPage : IDisposable
 {
-    private ImmutableHashSet<string> mIgnoredTraceNamesSet = [];
-    private string? mIgnoredTraceNamesRaw = null;
-
-    private ImmutableHashSet<string> mExclusiveTraceNamesSet = [];
-    private string? mExclusiveTraceNamesRaw = null;
-
     private ImmutableDictionary<string, string> mSpanAttributeFilter = ImmutableDictionary<
         string,
         string
@@ -29,11 +23,14 @@ public partial class Home : IDisposable
     [Inject]
     public required NavigationManager Navigation { get; set; }
 
+    [Parameter]
+    public required string SpanName { get; set; }
+
     [SupplyParameterFromQuery]
     public string? TraceId { get; set; }
 
     [SupplyParameterFromQuery]
-    private int? SpansMinimum { get; set; }
+    private string? SpanColorSelector { get; set; }
 
     [SupplyParameterFromQuery]
     private double? DurationMinimum { get; set; }
@@ -45,50 +42,21 @@ public partial class Home : IDisposable
     private bool? HasError { get; set; }
 
     [SupplyParameterFromQuery]
-    private string? SpanColorSelector { get; set; }
-
-    [SupplyParameterFromQuery]
-    private string? IgnoredTraceNames { get; set; }
-
-    [SupplyParameterFromQuery]
-    private string? ExclusiveTraceNames { get; set; }
-
-    [SupplyParameterFromQuery]
     private string? CustomColumns { get; set; }
 
     [SupplyParameterFromQuery]
     private string? SpanAttributeFilter { get; set; }
 
-    private string? NewColumnValue { get; set; }
-
     private string EffectiveSpanColorSelector =>
         this.SpanColorSelector ?? TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR;
 
+    private string? NewColumnValue { get; set; }
+
     private string[] EffectiveCustomColumns =>
-        this.CustomColumns?.Split(';', StringSplitOptions.RemoveEmptyEntries) ?? [];
+       this.CustomColumns?.Split(';', StringSplitOptions.RemoveEmptyEntries) ?? [];
 
     private string TracesGridStyle =>
         $"grid-template-columns: min-content minmax(15ch, 1fr) min-content min-content min-content {string.Join(' ', this.EffectiveCustomColumns.Select(_ => "min-content"))};";
-
-    private ImmutableHashSet<string> IgnoredTraceNamesSet
-    {
-        get
-        {
-            if (
-                !string.Equals(
-                    this.IgnoredTraceNames,
-                    mIgnoredTraceNamesRaw,
-                    StringComparison.Ordinal
-                )
-            )
-            {
-                mIgnoredTraceNamesSet = [.. this.IgnoredTraceNames?.Split('|') ?? []];
-                mIgnoredTraceNamesRaw = this.IgnoredTraceNames;
-            }
-
-            return mIgnoredTraceNamesSet;
-        }
-    }
 
     private ImmutableDictionary<string, string> ParsedSpanAttributesFilter
     {
@@ -129,62 +97,27 @@ public partial class Home : IDisposable
         }
     }
 
-    private ImmutableHashSet<string> ExclusiveTraceNamesSet
-    {
-        get
-        {
-            if (
-                !string.Equals(
-                    this.ExclusiveTraceNames,
-                    mExclusiveTraceNamesRaw,
-                    StringComparison.Ordinal
-                )
-            )
-            {
-                mExclusiveTraceNamesSet = [.. this.ExclusiveTraceNames?.Split('|') ?? []];
-                mExclusiveTraceNamesRaw = this.ExclusiveTraceNames;
-            }
+    private GridSort<SpanData> TraceStartGridSort { get; } = GridSort<SpanData>.ByAscending(t => t.StartTime);
 
-            return mExclusiveTraceNamesSet;
-        }
-    }
+    private GridSort<SpanData> SpanHasErrorGridSort { get; } =
+        GridSort<SpanData>.ByAscending(t => t.StatusCode == OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error);
 
-    private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByAscending(t => t.Start);
+    private ImmutableList<SpanData> Spans => 
+        this.TracesRepo.SpanRepositoriesByName.TryGetValue(this.SpanName, out var spanRepository)
+            ? spanRepository.Spans
+            : [];
 
-    private GridSort<Trace> TraceHasErrorGridSort { get; } =
-        GridSort<Trace>.ByAscending(t => t.HasError);
+    private IQueryable<SpanData> FilteredSpans =>
+        this.Spans
+            .Where(s => (this.DurationMinimum ?? 0) <= s.Duration.TotalSeconds)
+            .Where(s => (this.DurationMaximum ?? double.MaxValue) >= s.Duration.TotalSeconds)
+            .Where(s => this.HasError == null || ((s.StatusCode == OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error) == this.HasError))
+            .Where(this.SpanPassesFilter)
+            .AsQueryable();
 
-    private IEnumerable<(string Name, int Count)> TraceNamesWithCounts =>
-        this.TracesRepo.Traces
-            .AsEnumerable()
-            .Where(t => t.RootSpan != null)
-            .Select(t => t.RootSpan!.Name)
-            .GroupBy(n => n, StringComparer.Ordinal)
-            .Select(g => (g.Key, g.Count()))
-            .OrderBy(g => g.Key);
-
-    private IQueryable<Trace> FilteredTraces =>
-        this.TracesRepo.Traces
-            .Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
-            .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
-            .Where(t => (this.DurationMaximum ?? double.MaxValue) >= t.Duration.TotalSeconds)
-            .Where(t => this.HasError == null || t.HasError == this.HasError)
-            .Where(t =>
-                t.RootSpan == null
-                || this.IgnoredTraceNames == null
-                || !this.IgnoredTraceNames.Contains(t.RootSpan!.Name)
-            )
-            .Where(t =>
-                this.ExclusiveTraceNames == null
-                || (t.RootSpan != null && this.ExclusiveTraceNamesSet.Contains(t.RootSpan.Name))
-            )
-            .Where(t => this.TracePassesFilter(t));
-
-    private IEnumerable<string> RootSpanAttributeKeys =>
-        this.TracesRepo.Traces
-            .SelectMany(t =>
-                t.RootSpan == null ? Array.Empty<string>() : t.RootSpan.Attributes.Keys.ToArray()
-            )
+    private IEnumerable<string> SpanAttributeKeys =>
+        this.Spans
+            .SelectMany(s => s.Attributes.Keys)
             .Distinct(StringComparer.OrdinalIgnoreCase);
 
     protected override void OnInitialized()
@@ -205,6 +138,23 @@ public partial class Home : IDisposable
             await this.InvokeAsync(this.StateHasChanged);
             Interlocked.Exchange(ref mHasPendingRefresh, false);
         }
+    }
+
+    private void SpanColorSelector_Change(ChangeEventArgs e)
+    {
+        var newValue = e.Value as string;
+        if (
+            string.IsNullOrWhiteSpace(newValue)
+            || newValue is TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR
+        )
+        {
+            newValue = null;
+        }
+
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.SpanColorSelector), newValue),
+            replace: true
+        );
     }
 
     private void DurationMinimum_Change(ChangeEventArgs e)
@@ -241,20 +191,6 @@ public partial class Home : IDisposable
         );
     }
 
-    private void SpansMinimum_Change(ChangeEventArgs e)
-    {
-        this.SpansMinimum = 
-            int.TryParse(e.Value as string, out var value) 
-            && value is > 1 
-                ? value 
-                : null;
-
-        this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(nameof(this.SpansMinimum), this.SpansMinimum),
-            replace: true
-        );
-    }
-
     private void ToggleHasError(bool value)
     {
         this.HasError = (this.HasError, value) switch
@@ -269,23 +205,6 @@ public partial class Home : IDisposable
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(nameof(this.HasError), this.HasError),
-            replace: true
-        );
-    }
-
-    private void SpanColorSelector_Change(ChangeEventArgs e)
-    {
-        var newValue = e.Value as string;
-        if (
-            string.IsNullOrWhiteSpace(newValue)
-            || newValue is TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR
-        )
-        {
-            newValue = null;
-        }
-
-        this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(nameof(this.SpanColorSelector), newValue),
             replace: true
         );
     }
@@ -337,7 +256,7 @@ public partial class Home : IDisposable
         );
     }
 
-    private bool TracePassesFilter(Trace trace)
+    private bool SpanPassesFilter(SpanData span)
     {
         var parsedSpanAttributesFilter = this.ParsedSpanAttributesFilter;
         if (parsedSpanAttributesFilter.Count is 0)
@@ -345,14 +264,12 @@ public partial class Home : IDisposable
             return true;
         }
 
-        return trace.Spans.Any(s =>
-            parsedSpanAttributesFilter.Any(filterPair =>
-                s.Attributes.TryGetValue(filterPair.Key, out var spanAttributeValue)
-                && string.Equals(
-                    filterPair.Value,
-                    spanAttributeValue?.ToString(),
-                    StringComparison.OrdinalIgnoreCase
-                )
+        return parsedSpanAttributesFilter.Any(filterPair =>
+            span.Attributes.TryGetValue(filterPair.Key, out var spanAttributeValue)
+            && string.Equals(
+                filterPair.Value,
+                spanAttributeValue?.ToString(),
+                StringComparison.OrdinalIgnoreCase
             )
         );
     }

@@ -15,6 +15,8 @@ public sealed record SpanData
 
     public required string Id { get; init; }
 
+    public required string TraceId { get; init; }
+
     public required string? ParentSpanId { get; init; }
 
     public required string Name { get; init; }
@@ -56,4 +58,7 @@ public sealed record SpanData
             };
         }
     }
+
+    internal object? TryGetAttributeValue(string key) =>
+        this.Attributes.TryGetValue(key, out var value) ? value : null;
 }
