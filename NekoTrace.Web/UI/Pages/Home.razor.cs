@@ -19,7 +19,14 @@ public partial class Home : IDisposable
         string,
         string
     >.Empty;
+
     private string? mSpanAttributeFilterRaw = null;
+
+    private DateTimeOffset? mStartTime;
+    private string? mStartTimeRaw;
+
+    private DateTimeOffset? mEndTime;
+    private string? mEndTimeRaw;
 
     private bool mHasPendingRefresh = false;
 
@@ -58,6 +65,12 @@ public partial class Home : IDisposable
 
     [SupplyParameterFromQuery]
     private string? SpanAttributeFilter { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? StartTime { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? EndTime { get; set; }
 
     private string? NewColumnValue { get; set; }
 
@@ -149,6 +162,36 @@ public partial class Home : IDisposable
         }
     }
 
+    private DateTimeOffset? EffectiveStartTime
+    {
+        get
+        {
+            if (!string.Equals(this.StartTime, mStartTimeRaw, StringComparison.OrdinalIgnoreCase))
+            {
+                mStartTime = DateTimeOffset.TryParse(this.StartTime, out var result)
+                    ? result
+                    : null;
+                mStartTimeRaw = this.StartTime;
+            }
+
+            return mStartTime;
+        }
+    }
+
+    private DateTimeOffset? EffectiveEndTime
+    {
+        get
+        {
+            if (!string.Equals(this.EndTime, mEndTimeRaw, StringComparison.OrdinalIgnoreCase))
+            {
+                mEndTime = DateTimeOffset.TryParse(this.EndTime, out var result) ? result : null;
+                mEndTimeRaw = this.EndTime;
+            }
+
+            return mEndTime;
+        }
+    }
+
     private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByAscending(t => t.Start);
 
     private GridSort<Trace> TraceHasErrorGridSort { get; } =
@@ -169,6 +212,8 @@ public partial class Home : IDisposable
             .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
             .Where(t => (this.DurationMaximum ?? double.MaxValue) >= t.Duration.TotalSeconds)
             .Where(t => this.HasError == null || t.HasError == this.HasError)
+            .Where(t => this.EffectiveStartTime == null || this.EffectiveStartTime < t.Start)
+            .Where(t => this.EffectiveEndTime == null || this.EffectiveEndTime > t.Start)
             .Where(t =>
                 t.RootSpan == null
                 || this.IgnoredTraceNames == null
@@ -210,10 +255,7 @@ public partial class Home : IDisposable
     private void DurationMinimum_Change(ChangeEventArgs e)
     {
         this.DurationMinimum =
-            double.TryParse(e.Value as string, out var value) 
-            && value is > 0 
-                ? value 
-                : null;
+            double.TryParse(e.Value as string, out var value) && value is > 0 ? value : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
@@ -226,11 +268,8 @@ public partial class Home : IDisposable
 
     private void DurationMaximum_Change(ChangeEventArgs e)
     {
-        this.DurationMaximum = 
-            double.TryParse(e.Value as string, out var value) 
-            && value is > 0 
-                ? value 
-                : null;
+        this.DurationMaximum =
+            double.TryParse(e.Value as string, out var value) && value is > 0 ? value : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
@@ -243,11 +282,8 @@ public partial class Home : IDisposable
 
     private void SpansMinimum_Change(ChangeEventArgs e)
     {
-        this.SpansMinimum = 
-            int.TryParse(e.Value as string, out var value) 
-            && value is > 1 
-                ? value 
-                : null;
+        this.SpansMinimum =
+            int.TryParse(e.Value as string, out var value) && value is > 1 ? value : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(nameof(this.SpansMinimum), this.SpansMinimum),
@@ -300,6 +336,34 @@ public partial class Home : IDisposable
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(nameof(this.SpanAttributeFilter), newValue),
+            replace: true
+        );
+    }
+
+    private void StartTime_Input(ChangeEventArgs e)
+    {
+        var newValue = e.Value as string;
+        if (string.IsNullOrWhiteSpace(newValue))
+        {
+            newValue = null;
+        }
+
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.StartTime), newValue),
+            replace: true
+        );
+    }
+
+    private void EndTime_Input(ChangeEventArgs e)
+    {
+        var newValue = e.Value as string;
+        if (string.IsNullOrWhiteSpace(newValue))
+        {
+            newValue = null;
+        }
+
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.EndTime), newValue),
             replace: true
         );
     }

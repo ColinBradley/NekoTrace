@@ -7,7 +7,7 @@
 
 <div class="page">
 
-    <div style="display: flex; align-items: center; gap: 1em; grid-column: 1/3; padding: 1em;">
+    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 1em; grid-column: 1/3; padding: 1em;">
         <h1>
             <a href="@this.Navigation.GetUriWithQueryParameter("TraceId", (string?)null)">
                 Traces
@@ -18,7 +18,7 @@
             Spans
         </a>
 
-        <div class="inline-controls">
+        <div class="inline-controls" style="flex-wrap: wrap;">
             <label>
                 <span>
                     Span Color Selector
@@ -67,6 +67,24 @@
                 </span>
                 <input value="@this.SpanAttributeFilter"
                        @onchange="this.SpanAttributeFilter_Change" />
+            </label>
+
+            <label>
+                <span>
+                    Start Time
+                </span>
+                <input type="datetime-local"
+                       value="@this.StartTime"
+                       @oninput="this.StartTime_Input" />
+            </label>
+
+            <label>
+                <span>
+                    End Time
+                </span>
+                <input type="datetime-local"
+                       value="@this.EndTime"
+                       @oninput="this.EndTime_Input" />
             </label>
 
             <form method="POST"

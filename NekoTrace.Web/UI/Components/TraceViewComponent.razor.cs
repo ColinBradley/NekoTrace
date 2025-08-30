@@ -100,4 +100,14 @@ public partial class TraceViewComponent
             replace: true
         );
     }
+
+    private void RemoveButton_Click()
+    {
+        if (this.Trace is null)
+        {
+            return;
+        }
+
+        this.TracesRepo.RemoveTrace(this.Trace);
+    }
 }

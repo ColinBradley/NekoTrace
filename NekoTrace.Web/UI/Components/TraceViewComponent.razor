@@ -21,7 +21,7 @@
         </h1>
     }
 
-    <div class="commands inline-controls">
+    <div class="commands inline-controls" style="align-items: center;">
         @if (this.IsSmallMode)
         {
             <a href="traces/@Uri.EscapeDataString(this.TraceId)">
@@ -67,6 +67,12 @@
                 </ul>
             </hint-content>
         </hint>
+
+        <button @onclick="this.RemoveButton_Click"
+                class="danger"
+                style="margin-inline-start: auto;">
+            Remove
+        </button>
     </div>
 
     <canvas @ref="this.TraceFlameCanvas"
@@ -80,7 +86,9 @@
             <dl class="span-info">
                 <dt>Name</dt>
                 <dd class="name">
-                    @this.SelectedSpan.Name
+                    <a href="@($"/spans/{Uri.EscapeDataString(this.SelectedSpan.Name)}")">
+                        @this.SelectedSpan.Name
+                    </a>
                 </dd>
                 <dt>Start</dt>
                 <dd class="duration">
@@ -88,7 +96,16 @@
                 </dd>
                 <dt>Duration</dt>
                 <dd class="duration">
-                    @(this.SelectedSpan.EndTime - this.SelectedSpan.StartTime)
+                    @(this.SelectedSpan.DurationText)
+                </dd>
+                <dt>Performance</dt>
+                <dd class="performance">
+                    @{
+                        var performance = this.TracesRepo.SpanRepositoriesByName.TryGetValue(this.SelectedSpan.Name, out var spanRepository)
+                        ? "p" + ((this.SelectedSpan.Duration.TotalMilliseconds / spanRepository.MaxDuration.TotalMilliseconds) * 100).ToString("G3")
+                        : null;
+                    }
+                    @performance
                 </dd>
                 <dt>Kind</dt>
                 <dd class="kind">

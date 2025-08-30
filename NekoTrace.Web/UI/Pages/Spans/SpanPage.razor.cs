@@ -15,6 +15,12 @@ public partial class SpanPage : IDisposable
     >.Empty;
     private string? mSpanAttributeFilterRaw = null;
 
+    private DateTimeOffset? mStartTime;
+    private string? mStartTimeRaw;
+
+    private DateTimeOffset? mEndTime;
+    private string? mEndTimeRaw;
+
     private bool mHasPendingRefresh = false;
 
     [Inject]
@@ -46,6 +52,12 @@ public partial class SpanPage : IDisposable
 
     [SupplyParameterFromQuery]
     private string? SpanAttributeFilter { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? StartTime { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? EndTime { get; set; }
 
     private string EffectiveSpanColorSelector =>
         this.SpanColorSelector ?? TraceViewComponent.DEFAULT_SPAN_COLOR_SELECTOR;
@@ -97,6 +109,34 @@ public partial class SpanPage : IDisposable
         }
     }
 
+    private DateTimeOffset? EffectiveStartTime
+    {
+        get
+        {
+            if (!string.Equals(this.StartTime, mStartTimeRaw, StringComparison.OrdinalIgnoreCase))
+            {
+                mStartTime = DateTimeOffset.TryParse(this.StartTime, out var result) ? result : null;
+                mStartTimeRaw = this.StartTime;
+            }
+
+            return mStartTime;
+        }
+    }
+
+    private DateTimeOffset? EffectiveEndTime
+    {
+        get
+        {
+            if (!string.Equals(this.EndTime, mEndTimeRaw, StringComparison.OrdinalIgnoreCase))
+            {
+                mEndTime = DateTimeOffset.TryParse(this.EndTime, out var result) ? result : null;
+                mEndTimeRaw = this.EndTime;
+            }
+
+            return mEndTime;
+        }
+    }
+
     private GridSort<SpanData> TraceStartGridSort { get; } = GridSort<SpanData>.ByAscending(t => t.StartTime);
 
     private GridSort<SpanData> SpanHasErrorGridSort { get; } =
@@ -112,6 +152,8 @@ public partial class SpanPage : IDisposable
             .Where(s => (this.DurationMinimum ?? 0) <= s.Duration.TotalSeconds)
             .Where(s => (this.DurationMaximum ?? double.MaxValue) >= s.Duration.TotalSeconds)
             .Where(s => this.HasError == null || ((s.StatusCode == OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error) == this.HasError))
+            .Where(s => this.EffectiveStartTime == null || this.EffectiveStartTime < s.StartTime)
+            .Where(s => this.EffectiveEndTime == null || this.EffectiveEndTime > s.StartTime)
             .Where(this.SpanPassesFilter)
             .AsQueryable();
 
@@ -187,6 +229,34 @@ public partial class SpanPage : IDisposable
                 nameof(this.DurationMaximum),
                 this.DurationMaximum
             ),
+            replace: true
+        );
+    }
+
+    private void StartTime_Input(ChangeEventArgs e)
+    {
+        var newValue = e.Value as string;
+        if (string.IsNullOrWhiteSpace(newValue))
+        {
+            newValue = null;
+        }
+
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.StartTime), newValue),
+            replace: true
+        );
+    }
+
+    private void EndTime_Input(ChangeEventArgs e)
+    {
+        var newValue = e.Value as string;
+        if (string.IsNullOrWhiteSpace(newValue))
+        {
+            newValue = null;
+        }
+
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(nameof(this.EndTime), newValue),
             replace: true
         );
     }

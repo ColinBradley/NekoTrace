@@ -27,6 +27,22 @@ public class TracesRepository : IDisposable
 
     public IReadOnlyDictionary<string, SpanRepository> SpanRepositoriesByName => mSpansByName;
 
+    public Trace? TryGetTrace(string id)
+    {
+        mTracesLock.EnterReadLock();
+
+        try
+        {
+            return mTracesById.TryGetValue(id, out var trace)
+                ? trace
+                : null;
+        }
+        finally
+        {
+            mTracesLock.ExitReadLock();
+        }
+    }
+
     internal Trace GetOrAddTrace(ByteString traceId)
     {
         var stringId = traceId.ToBase64();
@@ -56,27 +72,11 @@ public class TracesRepository : IDisposable
         }
     }
 
-    internal Trace? TryGetTrace(string id)
-    {
-        mTracesLock.EnterReadLock();
-
-        try
-        {
-            return mTracesById.TryGetValue(id, out var trace)
-                ? trace
-                : null;
-        }
-        finally
-        {
-            mTracesLock.ExitReadLock();
-        }
-    }
-
     internal void AddSpan(SpanData span)
     {
         mSpansByName
             .GetOrAdd(
-                span.Name, 
+                span.Name,
                 (_) => new SpanRepository()
             )
             .AddSpan(span);
@@ -84,6 +84,27 @@ public class TracesRepository : IDisposable
 
     internal void OnTraceChanged()
     {
+        this.TracesChanged?.Invoke();
+    }
+
+    internal void RemoveTrace(Trace trace)
+    {
+        mTracesLock.EnterWriteLock();
+
+        try
+        {
+            if (!mTracesById.Remove(trace.Id))
+            {
+                return;
+            }
+
+            this.RemoveTraceSpans(trace);
+        }
+        finally
+        {
+            mTracesLock.ExitWriteLock();
+        }
+
         this.TracesChanged?.Invoke();
     }
 
@@ -117,24 +138,11 @@ public class TracesRepository : IDisposable
 
             try
             {
-                foreach(var oldTrace in tracesToRemove)
+                foreach (var oldTrace in tracesToRemove)
                 {
                     mTracesById.Remove(oldTrace.Id);
 
-                    foreach (var oldSpan in  oldTrace.Spans)
-                    {
-                        if (!mSpansByName.TryGetValue(oldSpan.Name, out var spanRepository))
-                        {
-                            continue;
-                        }
-
-                        spanRepository.RemoveSpan(oldSpan);
-
-                        if (spanRepository.Spans.Count is 0)
-                        {
-                            mSpansByName.TryRemove(new KeyValuePair<string, SpanRepository>(oldSpan.Name, spanRepository));
-                        }
-                    }
+                    this.RemoveTraceSpans(oldTrace);
                 }
 
                 this.Traces = mTracesById.Values.ToArray().AsQueryable();
@@ -143,13 +151,31 @@ public class TracesRepository : IDisposable
             {
                 mTracesLock.ExitWriteLock();
             }
-        } 
+        }
         finally
         {
             mTracesLock.ExitUpgradeableReadLock();
         }
-        
+
         this.TracesChanged?.Invoke();
+    }
+
+    private void RemoveTraceSpans(Trace oldTrace)
+    {
+        foreach (var oldSpan in oldTrace.Spans)
+        {
+            if (!mSpansByName.TryGetValue(oldSpan.Name, out var spanRepository))
+            {
+                continue;
+            }
+
+            spanRepository.RemoveSpan(oldSpan);
+
+            if (spanRepository.Spans.Count is 0)
+            {
+                mSpansByName.TryRemove(new KeyValuePair<string, SpanRepository>(oldSpan.Name, spanRepository));
+            }
+        }
     }
 
     public void Dispose()
