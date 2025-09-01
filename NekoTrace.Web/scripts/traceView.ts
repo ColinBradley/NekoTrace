@@ -12,15 +12,18 @@ export function initialize(
     renderer.setSelectionChangedCallback(spanId => callbackObject.invokeMethodAsync(callbackName, spanId));
 }
 
-const FONT_SIZE = () => 14 * window.devicePixelRatio;
+// It's a bit slow to fetch window.devicePixelRatio, so cache it
+let devicePixelRatioCache = window.devicePixelRatio;
+
+const FONT_SIZE = () => 14 * devicePixelRatioCache;
 const SPAN_INNER_PADDING = () => Math.round(FONT_SIZE() * 0.2);
 const SPAN_HEIGHT_INNER = () => FONT_SIZE() + (SPAN_INNER_PADDING() * 2);
-const SPAN_BORDER_WIDTH = () => 2 * window.devicePixelRatio;
+const SPAN_BORDER_WIDTH = () => 2 * devicePixelRatioCache;
 const SPAN_HEIGHT_TOTAL = () => SPAN_HEIGHT_INNER() + (SPAN_BORDER_WIDTH() * 2);
 const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL;
 
 const TIME_LINE_HEIGHT = () => FONT_SIZE() + SPAN_INNER_PADDING();
-const RESIZE_GRAB_WIDTH = () => 10 * window.devicePixelRatio;
+const RESIZE_GRAB_WIDTH = () => 10 * devicePixelRatioCache;
 
 const SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME = "data-span-color-selector";
 
@@ -88,14 +91,14 @@ class TraceRenderer {
         const storedTraceViewWidth = localStorage.getItem("traceview.width." + this.sizeClass);
         if (storedTraceViewWidth !== null) {
             const width = Number.parseInt(storedTraceViewWidth);
-            this.canvasElement.width = width * window.devicePixelRatio;
+            this.canvasElement.width = width * devicePixelRatioCache;
             this.canvasElement.style.width = width + "px";
         }
 
         const storedTraceViewHeight = localStorage.getItem("traceview.height." + this.sizeClass);
         if (storedTraceViewHeight !== null) {
             const height = Number.parseInt(storedTraceViewHeight);
-            this.canvasElement.height = height * window.devicePixelRatio;
+            this.canvasElement.height = height * devicePixelRatioCache;
             this.canvasElement.style.height = height + "px";
         }
     }
@@ -179,30 +182,30 @@ class TraceRenderer {
     }
 
     private readonly canvasElement_pointermove = (e: PointerEvent) => {
-        this.pointerX = e.offsetX * window.devicePixelRatio;
-        this.pointerY = e.offsetY * window.devicePixelRatio;
+        this.pointerX = e.offsetX * devicePixelRatioCache;
+        this.pointerY = e.offsetY * devicePixelRatioCache;
 
         if (this.isPanning) {
             this.left += e.movementX;
             this.top += e.movementY;
         } else if (this.isResizingWidth || this.isResizingHeight) {
             if (this.isResizingWidth) {
-                let width = this.canvasElement.width / window.devicePixelRatio;
+                let width = this.canvasElement.width / devicePixelRatioCache;
                 if (this.sizeClass === "small") {
-                    width -= e.movementX / window.devicePixelRatio;
+                    width -= e.movementX / devicePixelRatioCache;
                 } else {
-                    width += e.movementX / window.devicePixelRatio;
+                    width += e.movementX / devicePixelRatioCache;
                 }
 
                 this.canvasElement.style.width = width + "px";
-                this.canvasElement.width = width * window.devicePixelRatio;
+                this.canvasElement.width = width * devicePixelRatioCache;
 
                 localStorage.setItem("traceview.width." + this.sizeClass, width.toString());
             }
             if (this.isResizingHeight) {
-                const height = (this.canvasElement.height + e.movementY) / window.devicePixelRatio;
+                const height = (this.canvasElement.height + e.movementY) / devicePixelRatioCache;
                 this.canvasElement.style.height = height + "px";
-                this.canvasElement.height = height * window.devicePixelRatio;
+                this.canvasElement.height = height * devicePixelRatioCache;
 
                 localStorage.setItem("traceview.height." + this.sizeClass, height.toString());
             }
@@ -321,6 +324,8 @@ class TraceRenderer {
     }
 
     private readonly document_change = () => {
+        devicePixelRatioCache = window.devicePixelRatio;
+
         // Wait for the URL to update
         setTimeout(() => {
             this.loadOptions();
