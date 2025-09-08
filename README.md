@@ -5,7 +5,7 @@ An in-memory [Open Telemetry](https://opentelemetry.io/) [tracing](https://opent
 Available on [Docker Hub](https://hub.docker.com/r/colinbradley/nekotrace).
 
 - Safe releases: `docker run -p 4317:4317 -p 8347:8347 -d colinbradley/nekotrace:latest`
-- Brave releases: `docker run -p 4317:4317 -p 8347:8347 -d colinbradley/nekotrace:dev`
+- Brave releases: `docker run -p 4317:4317 -p 8347:8347 --pull=always colinbradley/nekotrace:dev`
 
 VERY work in progress.
 
