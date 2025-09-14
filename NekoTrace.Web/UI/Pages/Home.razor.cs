@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories;
 using NekoTrace.Web.UI.Components;
 
-public partial class Home : IDisposable
+public sealed partial class Home : IDisposable
 {
     private ImmutableHashSet<string> mIgnoredTraceNamesSet = [];
     private string? mIgnoredTraceNamesRaw = null;

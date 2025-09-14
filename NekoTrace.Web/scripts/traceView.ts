@@ -37,6 +37,7 @@ class TraceRenderer {
     private readonly sizeClass: "small" | "large";
 
     private spans: SpanItem[] = [];
+    private spansByRow: SpanItem[][] = [];
 
     private startMs = 0;
     private durationMs = 0;
@@ -109,7 +110,7 @@ class TraceRenderer {
     public spanTextColor = "#FFF";
     public timeOffsetTextColor = "#FFF";
     public timeLineColor = "#FFF6";
-    public hoverTextBackgroundColor = "#0008";
+    public hoverTextBackgroundColor = "#000C";
     public hoverTextColor = "#FFF";
 
     public spanBackgroundColors = [
@@ -131,17 +132,20 @@ class TraceRenderer {
     ];
 
     public setSpans(spans: SpanData[]) {
-        this.spans = spans.map(s => (
-            {
-                ...s,
-                children: [],
-                rowIndex: 0,
-                absolutePixelPositionX: 0,
-                absolutePixelPositionY: 0,
-                pixelWidth: 0,
-                color: "red"
-            }
-        ));
+        this.spans = spans
+            .map(s => (
+                {
+                    ...s,
+                    children: [],
+                    rowIndex: 0,
+                    childrenDepth: 0,
+                    absolutePixelPositionX: 0,
+                    absolutePixelPositionY: 0,
+                    pixelWidth: 0,
+                    color: "red",
+                }
+            ))
+            .sort((a, b) => a.startTimeMs - b.startTimeMs);
 
         const spansById = new Map(this.spans.map(s => [s.id, s]));
 
@@ -164,6 +168,7 @@ class TraceRenderer {
             span.parent = spansById.get(span.parentSpanId);
 
             if (span.parent !== undefined) {
+                span.earlierSibling = span.parent.children[span.parent.children.length - 1];
                 span.parent.children.push(span);
             }
         }
@@ -172,6 +177,7 @@ class TraceRenderer {
         this.durationMs = endMs - startMs;
 
         this.arrangeSpans();
+        this.updateSpanLocations();
         this.updateSpanColors();
 
         this.render();
@@ -341,11 +347,14 @@ class TraceRenderer {
     }
 
     private setHotSpan() {
-        this.hotSpan = this.spans.find(s => (this.left + s.absolutePixelPositionX) < this.pointerX
-            && (this.left + s.absolutePixelPositionX + s.pixelWidth) > this.pointerX
-            && (this.top + s.absolutePixelPositionY) < this.pointerY
-            && (this.top + s.absolutePixelPositionY + SPAN_HEIGHT_TOTAL()) > this.pointerY
-        );
+        const hotRowIndex = Math.floor((this.pointerY - this.top + (this.spans[0]?.absolutePixelPositionY ?? 0)) / SPAN_HEIGHT_TOTAL());
+
+        this.hotSpan =
+            (this.spansByRow[hotRowIndex] ?? [])
+            .find(s =>
+                (this.left + s.absolutePixelPositionX) < this.pointerX
+                && (this.left + s.absolutePixelPositionX + s.pixelWidth) > this.pointerX
+            );
 
         if (this.hotSpan === undefined) {
             this.hotSpansParents.clear();
@@ -362,42 +371,70 @@ class TraceRenderer {
     }
 
     private arrangeSpans() {
-        this.spans.sort((a, b) => a.startTimeMs - b.startTimeMs);
+        this.spansByRow = [];
 
         if (this.groupSpans) {
-            // TODO: This could be better - preventing siblings entering each other's children space?
-            const newSpans = this.spans
+            const spansDepthFirst = this.spans
                 .filter(s => s.parent === undefined)
                 .map(s => [...getSpansDepthFirst(s)])
                 .flat();
 
-            this.spans = newSpans;
-        }
+            for (const span of spansDepthFirst) {
+                let isInserted = false;
+                const isInSiblingSpan = (span.earlierSibling?.endTimeMs ?? 0) > span.startTimeMs;
 
-        const spansByRow: SpanItem[][] = [];
-        for (const span of this.spans) {
-            let isInserted = false;
-            for (let rowIndex = (span.parent?.rowIndex ?? -1) + 1; rowIndex < spansByRow.length; rowIndex++) {
-                const rowSpans = spansByRow[rowIndex];
-                if (rowSpans.some(s => s.endTimeMs > span.startTimeMs)) {
-                    continue;
+                let rowIndex = isInSiblingSpan
+                    ? span.earlierSibling!.rowIndex + span.earlierSibling!.childrenDepth + 1
+                    : (span.parent?.rowIndex ?? -1) + 1;
+
+                for (; rowIndex < this.spansByRow.length; rowIndex++) {
+                    const rowSpans = this.spansByRow[rowIndex];
+                    if (rowSpans[rowSpans.length - 1].endTimeMs > span.startTimeMs) {
+                        continue;
+                    }
+
+                    span.rowIndex = rowIndex;
+                    rowSpans.push(span);
+                    isInserted = true;
+                    break;
                 }
 
-                span.rowIndex = rowIndex;
-                rowSpans.push(span);
-                isInserted = true;
-                break;
-            }
+                if (!isInserted) {
+                    span.rowIndex = this.spansByRow.length;
+                    this.spansByRow.push([span]);
+                }
 
-            if (!isInserted) {
-                span.rowIndex = spansByRow.length;
-                spansByRow.push([span]);
-            }
+                span.absolutePixelPositionY = SPAN_ROW_OFFSET() * span.rowIndex;
 
-            span.absolutePixelPositionY = SPAN_ROW_OFFSET() * span.rowIndex;
+                for (let depth = 1, parent = span.parent; parent !== undefined; depth++, parent = parent.parent) {
+                    if (parent.childrenDepth < depth) {
+                        parent.childrenDepth = depth;
+                    }
+                }
+            }
+        } else {
+            for (const span of this.spans) {
+                let isInserted = false;
+                for (let rowIndex = (span.parent?.rowIndex ?? -1) + 1; rowIndex < this.spansByRow.length; rowIndex++) {
+                    const rowSpans = this.spansByRow[rowIndex];
+                    if (rowSpans[rowSpans.length - 1].endTimeMs > span.startTimeMs) {
+                        continue;
+                    }
+
+                    span.rowIndex = rowIndex;
+                    rowSpans.push(span);
+                    isInserted = true;
+                    break;
+                }
+
+                if (!isInserted) {
+                    span.rowIndex = this.spansByRow.length;
+                    this.spansByRow.push([span]);
+                }
+
+                span.absolutePixelPositionY = SPAN_ROW_OFFSET() * span.rowIndex;
+            }
         }
-
-        this.updateSpanLocations();
     }
 
     private updateSpanColors() {
@@ -424,6 +461,18 @@ class TraceRenderer {
         this.canvasContext.textBaseline = "middle";
 
         for (const span of this.spans) {
+            if (
+                // Off screen to the left
+                span.absolutePixelPositionX + span.pixelWidth + this.left < 0
+                // Off screen to the right
+                || span.absolutePixelPositionX + this.left > this.canvasElement.width
+                // Off screen to the top
+                || span.absolutePixelPositionY + SPAN_HEIGHT_TOTAL() + this.top < 0
+                // Off screen to the bottom
+                || span.absolutePixelPositionY + this.top > this.canvasElement.height) {
+                continue;
+            }
+
             const isHot = span === this.hotSpan;
             const isSelected = span === this.selectedSpan;
             const isParent =
@@ -529,14 +578,17 @@ class TraceRenderer {
             );
 
             if (this.hotSpan !== undefined) {
+                const padding = SPAN_INNER_PADDING() * 2;
+                const itemHeight = FONT_SIZE() + padding;
+
                 this.canvasContext.fillStyle = this.hoverTextBackgroundColor;
-                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (FONT_SIZE() * 2), (this.hotSpan.name.length + 2) * this.characterPixelWidth, FONT_SIZE());
-                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (FONT_SIZE() * 3), (this.hotSpan.durationText.length + 2) * this.characterPixelWidth, FONT_SIZE());
+                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (itemHeight * 2), ((this.hotSpan.name.length + 2) * this.characterPixelWidth) + padding, itemHeight);
+                this.canvasContext.fillRect(this.pointerX + 1, this.pointerY + (itemHeight * 3), (this.hotSpan.durationText.length + 2) * this.characterPixelWidth + padding, itemHeight);
 
                 this.canvasContext.fillStyle = this.hoverTextColor;
                 this.canvasContext.textBaseline = "top";
-                this.canvasContext.fillText(this.hotSpan.name, this.pointerX + this.characterPixelWidth, this.pointerY + (FONT_SIZE() * 2));
-                this.canvasContext.fillText(this.hotSpan.durationText, this.pointerX + this.characterPixelWidth, this.pointerY + (FONT_SIZE() * 3));
+                this.canvasContext.fillText(this.hotSpan.name, this.pointerX + this.characterPixelWidth, this.pointerY + (itemHeight * 2) + SPAN_INNER_PADDING());
+                this.canvasContext.fillText(this.hotSpan.durationText, this.pointerX + this.characterPixelWidth, this.pointerY + (itemHeight * 3) + SPAN_INNER_PADDING());
             }
         }
     }
@@ -624,6 +676,8 @@ interface SpanItem extends SpanData {
     readonly children: SpanItem[];
     color: string;
     rowIndex: number;
+    childrenDepth: number;
+    earlierSibling?: SpanItem;
 
     absolutePixelPositionX: number;
     absolutePixelPositionY: number;
