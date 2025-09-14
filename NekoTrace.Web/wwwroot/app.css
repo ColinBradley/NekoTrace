@@ -174,11 +174,11 @@ td {
 		background-color: #1c2831;
 	}
 
-	.quickgrid tbody tr:has(.span-error-true) {
+	.quickgrid tbody tr:has(.trace-error-true,.span-error-true) {
 		background-color: #ff000057;
 	}
 
-		.quickgrid tbody tr:has(.span-error-true):hover {
+		.quickgrid tbody tr:has(.trace-error-true,.span-error-true):hover {
 			background-color: #ff000080;
 		}
 
