@@ -99,6 +99,8 @@ public class TracesRepository : IDisposable
             }
 
             this.RemoveTraceSpans(trace);
+
+            this.Traces = mTracesById.Values.ToArray().AsQueryable();
         }
         finally
         {
