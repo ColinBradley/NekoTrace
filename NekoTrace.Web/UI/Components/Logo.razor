@@ -1,0 +1,41 @@
+﻿@{
+	var barWidth = 25;
+	var barGap = 3;
+	var barWidthWithGap = barWidth + barGap;
+}
+
+<svg viewBox="0 0 @(barWidthWithGap * 19 + barWidth) 420" role="img" width="3ch">
+	<defs>
+		<style>
+			rect {
+				fill: #fff;
+			}
+			line, ellipse {
+				stroke: #000;
+			}
+		</style>
+	</defs>
+
+	<rect x="@(barWidthWithGap * 1)" y="160" width="@barWidth" height="240" />
+	<rect x="@(barWidthWithGap * 2)" y="190" width="@barWidth" height="210" />
+	<rect x="@(barWidthWithGap * 3)" y="240" width="@barWidth" height="160" />
+	<rect x="@(barWidthWithGap * 4)" y="300" width="@barWidth" height="100" />
+	<rect x="@(barWidthWithGap * 5)" y="375" width="@barWidth" height="25" />
+	<rect x="@(barWidthWithGap * 6)" y="375" width="@barWidth" height="25" />
+	<rect x="@(barWidthWithGap * 7)" y="375" width="@barWidth" height="25" />
+	<rect x="@(barWidthWithGap * 8)" y="300" width="@barWidth" height="100" />
+	<rect x="@(barWidthWithGap * 9)" y="265" width="@barWidth" height="135" />
+	<rect x="@(barWidthWithGap * 10)" y="245" width="@barWidth" height="155" />
+	<rect x="@(barWidthWithGap * 11)" y="220" width="@barWidth" height="180" />
+	<rect x="@(barWidthWithGap * 12)" y="190" width="@barWidth" height="210" />
+	<rect x="@(barWidthWithGap * 13)" y="15" width="@barWidth" height="385" />
+	<rect x="@(barWidthWithGap * 14)" y="35" width="@barWidth" height="365" />
+	<rect x="@(barWidthWithGap * 15)" y="70" width="@barWidth" height="330" />
+	<rect x="@(barWidthWithGap * 16)" y="70" width="@barWidth" height="330" />
+	<rect x="@(barWidthWithGap * 17)" y="35" width="@barWidth" height="160" />
+	<rect x="@(barWidthWithGap * 18)" y="15" width="@barWidth" height="155" />
+
+	<line stroke-width="10" x1="@((barWidthWithGap * 14) + (barWidth / 2))" y1="125" x2="@((barWidthWithGap * 17) + (barWidth / 2))" y2="125" />
+	<ellipse stroke-width="10" cx="@((barWidthWithGap * 14) + (barWidth / 2))" cy="130" ry="30" rx="30" />
+	<ellipse stroke-width="10" cx="@((barWidthWithGap * 17) + (barWidth / 2))" cy="130" ry="30" rx="30" />
+</svg>
