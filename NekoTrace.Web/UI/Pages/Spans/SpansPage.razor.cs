@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories;
 
-public partial class SpansPage : IDisposable
+public sealed partial class SpansPage : IDisposable
 {
     private ImmutableHashSet<string> mIgnoredSpanNamesSet = [];
     private string? mIgnoredSpanNamesRaw = null;

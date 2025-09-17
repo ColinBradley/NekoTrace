@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories;
 using NekoTrace.Web.UI.Components;
 
-public partial class SpanPage : IDisposable
+public sealed partial class SpanPage : IDisposable
 {
     private ImmutableDictionary<string, string> mSpanAttributeFilter = ImmutableDictionary<
         string,
