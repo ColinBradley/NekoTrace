@@ -82,25 +82,23 @@ public sealed partial class SpanPage : IDisposable
                 )
             )
             {
-                if (!string.IsNullOrWhiteSpace(this.SpanAttributeFilter))
-                {
-                    mSpanAttributeFilter = ImmutableDictionary<string, string>.Empty.AddRange(
-                        this.SpanAttributeFilter.Split(';')
-                            .Select<string, KeyValuePair<string, string>?>(f =>
-                                f.Split(':') switch
-                                {
-                                    [string k, string v] => new KeyValuePair<string, string>(
-                                        k.Trim(),
-                                        v.Trim()
-                                    ),
-                                    _ => null,
-                                }
-                            )
-                            .Where(p => p is not null)
-                            .Select(p => p!.Value)
-                            .DistinctBy(p => p.Key)
-                    );
-                }
+                mSpanAttributeFilter = ImmutableDictionary<string, string>.Empty.AddRange(
+                    this.SpanAttributeFilter?.Split(';')
+                        .Select<string, KeyValuePair<string, string>?>(f =>
+                            f.Split('=') switch
+                            {
+                                [string k, string v] => new KeyValuePair<string, string>(
+                                    k.Trim(),
+                                    v.Trim()
+                                ),
+                                _ => null,
+                            }
+                        )
+                        .Where(p => p is not null)
+                        .Select(p => p!.Value)
+                        .DistinctBy(p => p.Key)
+                        ?? []
+                );
 
                 mSpanAttributeFilterRaw = this.SpanAttributeFilter;
             }
@@ -142,7 +140,7 @@ public sealed partial class SpanPage : IDisposable
     private GridSort<SpanData> SpanHasErrorGridSort { get; } =
         GridSort<SpanData>.ByAscending(t => t.StatusCode == OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error);
 
-    private ImmutableList<SpanData> Spans => 
+    private ImmutableList<SpanData> Spans =>
         this.TracesRepo.SpanRepositoriesByName.TryGetValue(this.SpanName, out var spanRepository)
             ? spanRepository.Spans
             : [];
@@ -151,7 +149,7 @@ public sealed partial class SpanPage : IDisposable
         this.Spans
             .Where(s => (this.DurationMinimum ?? 0) <= s.Duration.TotalSeconds)
             .Where(s => (this.DurationMaximum ?? double.MaxValue) >= s.Duration.TotalSeconds)
-            .Where(s => this.HasError == null || ((s.StatusCode == OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error) == this.HasError))
+            .Where(s => this.HasError == null || (s.StatusCode == OpenTelemetry.Proto.Trace.V1.Status.Types.StatusCode.Error == this.HasError))
             .Where(s => this.EffectiveStartTime == null || this.EffectiveStartTime < s.StartTime)
             .Where(s => this.EffectiveEndTime == null || this.EffectiveEndTime > s.StartTime)
             .Where(this.SpanPassesFilter)
@@ -202,9 +200,9 @@ public sealed partial class SpanPage : IDisposable
     private void DurationMinimum_Change(ChangeEventArgs e)
     {
         this.DurationMinimum =
-            double.TryParse(e.Value as string, out var value) 
-            && value is > 0 
-                ? value 
+            double.TryParse(e.Value as string, out var value)
+            && value is > 0
+                ? value
                 : null;
 
         this.Navigation.NavigateTo(
@@ -218,10 +216,10 @@ public sealed partial class SpanPage : IDisposable
 
     private void DurationMaximum_Change(ChangeEventArgs e)
     {
-        this.DurationMaximum = 
-            double.TryParse(e.Value as string, out var value) 
-            && value is > 0 
-                ? value 
+        this.DurationMaximum =
+            double.TryParse(e.Value as string, out var value)
+            && value is > 0
+                ? value
                 : null;
 
         this.Navigation.NavigateTo(

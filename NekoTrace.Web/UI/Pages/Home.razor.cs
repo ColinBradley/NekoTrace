@@ -115,25 +115,23 @@ public sealed partial class Home : IDisposable
                 )
             )
             {
-                if (!string.IsNullOrWhiteSpace(this.SpanAttributeFilter))
-                {
-                    mSpanAttributeFilter = ImmutableDictionary<string, string>.Empty.AddRange(
-                        this.SpanAttributeFilter.Split(';')
-                            .Select<string, KeyValuePair<string, string>?>(f =>
-                                f.Split(':') switch
-                                {
-                                    [string k, string v] => new KeyValuePair<string, string>(
-                                        k.Trim(),
-                                        v.Trim()
-                                    ),
-                                    _ => null,
-                                }
-                            )
-                            .Where(p => p is not null)
-                            .Select(p => p!.Value)
-                            .DistinctBy(p => p.Key)
-                    );
-                }
+                mSpanAttributeFilter = ImmutableDictionary<string, string>.Empty.AddRange(
+                    this.SpanAttributeFilter?.Split(';')
+                        .Select<string, KeyValuePair<string, string>?>(f =>
+                            f.Split('=') switch
+                            {
+                                [string k, string v] => new KeyValuePair<string, string>(
+                                    k.Trim(),
+                                    v.Trim()
+                                ),
+                                _ => null,
+                            }
+                        )
+                        .Where(p => p is not null)
+                        .Select(p => p!.Value)
+                        .DistinctBy(p => p.Key)
+                        ?? []
+                );
 
                 mSpanAttributeFilterRaw = this.SpanAttributeFilter;
             }
