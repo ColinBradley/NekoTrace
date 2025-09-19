@@ -215,6 +215,9 @@ class TraceRenderer {
 
                 localStorage.setItem("traceview.height." + this.sizeClass, height.toString());
             }
+
+            // Resizing the canvas also clears the set font for some reason
+            this.canvasContext.font = `${FONT_SIZE()}px monospace`;
         } else {
             this.canvasElement.style.cursor = this.getCursor();
         }
