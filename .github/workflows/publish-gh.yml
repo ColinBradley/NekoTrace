@@ -3,12 +3,12 @@ name: Publish
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write # Required for creating a release
-
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Required for creating a release
 
     steps:
       - uses: actions/checkout@v4
@@ -22,16 +22,16 @@ jobs:
 
       - name: Get Version
         id: NekoTraceWebVersion
-        uses: KageKirin/get-csproj-version@v1.0.0
+        uses: kzrnm/get-net-sdk-project-versions-action@v2
         with:
-          file: ./NekoTrace.Web/NekoTrace.Web.csproj
+          proj-path: ./NekoTrace.Web/NekoTrace.Web.csproj
 
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir publish
-          RELEASE_FILE_PREFIX="NekoTrace-${{ steps.NekoTraceWebVersion.version }}-"
+          RELEASE_FILE_PREFIX="NekoTrace-${{ steps.NekoTraceWebVersion.outputs.version }}-"
           for publish_name in Portable Linux64SelfContained Win64 Win64SelfContained;
           do
             dotnet publish ./NekoTrace.Web/NekoTrace.Web.csproj -p:PublishProfile=$publish_name
@@ -41,4 +41,4 @@ jobs:
             mv $zip_name ../../../../../../publish/$zip_name
             cd ../../../../../..
           done
-          gh release create -d --generate-notes --fail-on-no-commits ${{ steps.NekoTraceWebVersion.version }} ./publish/*
+          gh release create -d --generate-notes --fail-on-no-commits ${{ steps.NekoTraceWebVersion.outputs.version }} ./publish/*
