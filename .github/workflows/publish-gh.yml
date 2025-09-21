@@ -3,6 +3,9 @@ name: Publish
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write # Required for creating a release
+
 jobs:
   build:
     runs-on: ubuntu-latest
