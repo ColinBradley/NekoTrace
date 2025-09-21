@@ -47,9 +47,9 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PAT }}
 
       - name: Retag and push docker image
-        uses: contiamo/retag-push@main
-        with:
-          source: colinbradley/nekotrace:${{ github.sha }}
-          target: |
-            colinbradley/nekotrace:latest
-            colinbradley/nekotrace:v${{ steps.NekoTraceWebVersion.outputs.version }}
+        run: |
+          docker pull colinbradley/nekotrace:${{ github.sha }}
+          docker tag colinbradley/nekotrace:${{ github.sha }} colinbradley/nekotrace:latest
+          docker tag colinbradley/nekotrace:${{ github.sha }} colinbradley/nekotrace:v${{ steps.NekoTraceWebVersion.outputs.version }}
+          docker push colinbradley/nekotrace:latest
+          docker push colinbradley/nekotrace:v${{ steps.NekoTraceWebVersion.outputs.version }}
