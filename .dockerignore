@@ -24,6 +24,7 @@
 LICENSE
 README.md
 /Content/**
+/[Pp]ublish/
 !**/.gitignore
 !.git/HEAD
 !.git/config

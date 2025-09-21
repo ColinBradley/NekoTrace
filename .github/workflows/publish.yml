@@ -1,10 +1,10 @@
-name: Publish
+name: Publish to GitHub and Docker
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
 
     permissions:
@@ -15,14 +15,12 @@ jobs:
         with:
           lfs: true
 
-      - name: Install .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
 
-      - name: Get Version
+      - uses: kzrnm/get-net-sdk-project-versions-action@v2
         id: NekoTraceWebVersion
-        uses: kzrnm/get-net-sdk-project-versions-action@v2
         with:
           proj-path: ./NekoTrace.Web/NekoTrace.Web.csproj
 
@@ -41,4 +39,17 @@ jobs:
             mv $zip_name ../../../../../../publish/$zip_name
             cd ../../../../../..
           done
-          gh release create -d --generate-notes --fail-on-no-commits ${{ steps.NekoTraceWebVersion.outputs.version }} ./publish/*
+          gh release create --generate-notes --fail-on-no-commits v${{ steps.NekoTraceWebVersion.outputs.version }} ./publish/*
+
+      - uses: docker/login-action@v3.4.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PAT }}
+
+      - name: Retag and push docker image
+        uses: contiamo/retag-push@main
+        with:
+          source: colinbradley/nekotrace:${{ github.sha }}
+          target: |
+            colinbradley/nekotrace:latest
+            colinbradley/nekotrace:v${{ steps.NekoTraceWebVersion.outputs.version }}
