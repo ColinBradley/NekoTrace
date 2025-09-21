@@ -24,6 +24,8 @@ jobs:
           file: ./NekoTrace.Web/NekoTrace.Web.csproj
 
       - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir publish
           RELEASE_FILE_PREFIX="NekoTrace-${{ steps.NekoTraceWebVersion.version }}-"
