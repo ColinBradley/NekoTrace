@@ -9,6 +9,8 @@ using NekoTrace.Web.UI.Components;
 
 public sealed partial class Home : IDisposable
 {
+    private static readonly string sAssemblyVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "unknown version";
+
     private ImmutableHashSet<string> mIgnoredTraceNamesSet = [];
     private string? mIgnoredTraceNamesRaw = null;
 

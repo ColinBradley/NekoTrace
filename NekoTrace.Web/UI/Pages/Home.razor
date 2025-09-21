@@ -3,7 +3,9 @@
 @using Microsoft.AspNetCore.Components.QuickGrid
 @using System.Collections.Immutable
 
-<PageTitle>Traces - NekoTrace</PageTitle>
+<PageTitle>
+    Traces - NekoTrace @sAssemblyVersion
+</PageTitle>
 
 <div class="page">
 
@@ -118,12 +120,10 @@
                     Olaf the neko, doesn't see any traces just yet.
                 </h2>
 
-                <img src="@this.Assets["images/OlafLabCoat.png"]"
-                     alt="Olaf the neko" style="max-width: 50ch;"/>
-
-                <p style="font-size:.8em; opacity: .5;">
-                    Art by <a href="https://bsky.app/profile/chaos-cola.com">Chaos Cola</a>
-                </p>
+                <img src="@this.Assets["images/OlafLabCoat.webp"]"
+                     alt="Olaf the neko" 
+                     title="Art by Chaos Cola https://bsky.app/profile/chaos-cola.com" 
+                     style="max-width: 50ch;" />
             </div>
         }
 
