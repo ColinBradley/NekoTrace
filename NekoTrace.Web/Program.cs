@@ -13,12 +13,15 @@ var configFilePath = Path.Combine(
     "config.json"
 );
 
-Console.WriteLine($"Config path: {configFilePath}");
+Console.WriteLine($"Config path: {configFilePath}\n");
 
 var webAppBuilder = WebApplication.CreateBuilder(args);
 webAppBuilder.Configuration.AddJsonFile(configFilePath, optional: true, reloadOnChange: true);
 
-webAppBuilder.Services.Configure<NekoTraceConfiguration>(webAppBuilder.Configuration.GetSection("NekoTrace"));
+var nekoTraceConfigurationSection = webAppBuilder.Configuration.GetSection("NekoTrace");
+webAppBuilder.Services.Configure<NekoTraceConfiguration>(nekoTraceConfigurationSection);
+var nekoTraceConfiguration = new NekoTraceConfiguration();
+nekoTraceConfigurationSection.Bind(nekoTraceConfiguration);
 
 var traces = new TracesRepository(webAppBuilder.Configuration);
 
@@ -27,40 +30,73 @@ var collectorAppTask = Task.Run(async () =>
     var collectorAppBuilder = WebApplication.CreateBuilder(args);
     collectorAppBuilder.Configuration.Sources.Clear();
 
+    collectorAppBuilder.Logging.AddSimpleConsole(options =>
+    {
+        options.TimestampFormat = "[HH:mm:ss] Collec\\tor: ";
+    });
+
+    // Remove pointless message about not having any app parts
+    collectorAppBuilder.Logging.AddFilter(
+        "Microsoft.AspNetCore.Mvc.Infrastructure.DefaultActionDescriptorCollectionProvider",
+        LogLevel.Warning
+    );
+
     collectorAppBuilder.Services.AddGrpc();
 
     collectorAppBuilder.Services.AddSingleton(traces);
 
     collectorAppBuilder.WebHost.ConfigureKestrel(o =>
-        o.ListenAnyIP(4317, c => c.Protocols = HttpProtocols.Http2)
+        o.ListenAnyIP(
+            nekoTraceConfiguration.CollectionPort,
+            c => c.Protocols = HttpProtocols.Http2
+        )
     );
 
-    var app = collectorAppBuilder.Build();
+    var collectorApp = collectorAppBuilder.Build();
 
-    app.MapGrpcService<LogsServiceImplementation>();
-    app.MapGrpcService<MetricsServiceImplementation>();
-    app.MapGrpcService<ProfilesServiceImplementation>();
-    app.MapGrpcService<TraceServiceImplementation>();
+    collectorApp.MapGrpcService<LogsServiceImplementation>();
+    collectorApp.MapGrpcService<MetricsServiceImplementation>();
+    collectorApp.MapGrpcService<ProfilesServiceImplementation>();
+    collectorApp.MapGrpcService<TraceServiceImplementation>();
 
-    await app.RunAsync();
+    await collectorApp.RunAsync();
 });
 
 var webAppTask = Task.Run(async () =>
 {
+    webAppBuilder.Logging.AddSimpleConsole(options =>
+    {
+        options.TimestampFormat = "[HH:mm:ss] Web: ";
+    });
+
     webAppBuilder.Services.AddSingleton(traces);
     webAppBuilder.Services.AddHttpContextAccessor();
     webAppBuilder.Services.AddRazorComponents().AddInteractiveServerComponents();
     webAppBuilder.Services.AddControllers();
 
-    var app = webAppBuilder.Build();
+    webAppBuilder.WebHost.ConfigureKestrel(
+        o =>
+        {
+            o.ListenAnyIP(nekoTraceConfiguration.WebApplicationPort);
+        }
+    );
 
-    app.UseAntiforgery();
+    var webApp = webAppBuilder.Build();
 
-    app.MapStaticAssets();
-    app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
-    app.MapControllers();
+    webApp.UseAntiforgery();
 
-    await app.RunAsync();
+    webApp.MapStaticAssets();
+    webApp.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+    webApp.MapControllers();
+
+    webApp.Lifetime.ApplicationStarted.Register(
+        () =>
+        {
+            Console.WriteLine($"\nBrowse here: http://localhost:{nekoTraceConfiguration.WebApplicationPort}");
+        }
+    );
+
+    await webApp.RunAsync();
 });
 
 await Task.WhenAny(collectorAppTask, webAppTask);
