@@ -34,7 +34,6 @@ dl {
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);
 	gap: .5em 1em;
-	padding: 1em;
 }
 
 dt {

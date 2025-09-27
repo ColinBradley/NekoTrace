@@ -27,16 +27,35 @@ const RESIZE_GRAB_WIDTH = () => 10 * devicePixelRatioCache;
 
 const SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME = "data-span-color-selector";
 
+// Booo, browsers
+const originalHistoryPushState = history.pushState;
+history.pushState = function pushState(...a) {
+    originalHistoryPushState.apply(this, a);
+
+    window.dispatchEvent(new Event('pushstate'));
+    window.dispatchEvent(new Event('locationchange'));
+};
+
+const originalHistoryReplaceState = history.replaceState;
+history.replaceState = function replaceState(...a) {
+    originalHistoryReplaceState.apply(this, a);
+
+    window.dispatchEvent(new Event('replacestate'));
+    window.dispatchEvent(new Event('locationchange'));
+};
+
 class TraceRenderer {
 
     private readonly canvasContext: CanvasRenderingContext2D;
     private readonly resizeObserver: ResizeObserver;
     private readonly mutationObserver: MutationObserver;
+    private readonly disposalObserver: MutationObserver;
     private readonly characterPixelWidth: number;
 
     private readonly sizeClass: "small" | "large";
 
     private spans: SpanItem[] = [];
+    private filteredSpans: SpanItem[] = [];
     private spansByRow: SpanItem[][] = [];
 
     private startMs = 0;
@@ -60,6 +79,8 @@ class TraceRenderer {
     private selectionChangedCallback?: (spanId?: string) => Promise<void>;
     private lastSentSelectedSpanId?: string;
 
+    private hiddenSpanNames = new Set<string>();
+    private hiddenSpanIds = new Set<string>();
     private groupSpans = true;
 
     public constructor(
@@ -79,13 +100,16 @@ class TraceRenderer {
         this.mutationObserver = new MutationObserver(this.canvasElement_mutated);
         this.mutationObserver.observe(canvasElement, { attributeFilter: [SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME] });
 
-        this.canvasContext.font = `${FONT_SIZE()}px monospace`;
-        
+        this.disposalObserver = new MutationObserver(this.parentElement_mutated);
+        this.disposalObserver.observe(canvasElement.parentElement!.parentElement!, { childList: true });
+
         this.characterPixelWidth = this.canvasContext.measureText('L').width;
 
         this.loadOptions();
 
         document.addEventListener("change", this.document_change);
+        window.addEventListener("locationchange", this.window_urlChanged);
+        window.addEventListener("popstate", this.window_urlChanged);
 
         this.sizeClass = this.canvasElement.parentElement?.classList.contains("small") ? "small" : "large";
 
@@ -222,7 +246,7 @@ class TraceRenderer {
         this.setHotSpan();
 
         this.render();
-    }
+    };
 
     private readonly canvasElement_pointerdown = (e: PointerEvent) => {
         this.canvasElement.setPointerCapture(e.pointerId);
@@ -243,14 +267,14 @@ class TraceRenderer {
                 this.isPanning = true;
                 break;
         }
-        
+
         if (this.hotSpan !== undefined) {
             this.selectedSpan = this.hotSpan;
             populateParents(this.selectedSpansParents, this.selectedSpan);
 
             this.render();
         }
-    }
+    };
 
     private readonly canvasElement_pointerup = (e: PointerEvent) => {
         if (this.isPanning || this.isResizingWidth || this.isResizingHeight) {
@@ -259,7 +283,7 @@ class TraceRenderer {
             this.isResizingWidth = false;
             this.isResizingHeight = false;
         }
-    }
+    };
 
     private readonly canvasElement_dblclick = () => {
         // Reset
@@ -274,7 +298,7 @@ class TraceRenderer {
         this.setHotSpan();
 
         this.render();
-    }
+    };
 
     private readonly canvasElement_pointerout = (e: PointerEvent) => {
         this.hotSpan = undefined;
@@ -283,7 +307,7 @@ class TraceRenderer {
         this.pointerY = -1;
 
         this.render();
-    }
+    };
 
     private readonly canvasElement_wheel = (e: WheelEvent) => {
         e.preventDefault();
@@ -312,22 +336,27 @@ class TraceRenderer {
         }
 
         this.render();
-    }
+    };
 
     private readonly canvasElement_resized = () => {
-        // Weirdly, this gets unset with resizes
-        this.canvasContext.font = `${FONT_SIZE()}px monospace`;
-
         this.updateSpanLocations();
         this.render();
-    }
+    };
 
     private readonly canvasElement_mutated = (mutations: MutationRecord[]) => {
         if (mutations.some(m => m.attributeName === SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME)) {
             this.updateSpanColors();
             this.render();
         }
-    }
+    };
+
+    private readonly parentElement_mutated = (mutations: MutationRecord[]) => {
+        if (this.canvasElement.isConnected) {
+            return;
+        }
+
+        this.dispose();
+    };
 
     private readonly document_change = () => {
         devicePixelRatioCache = window.devicePixelRatio;
@@ -338,12 +367,30 @@ class TraceRenderer {
             this.arrangeSpans();
             this.render();
         }, 10);
-    }
+    };
+
+    private readonly window_urlChanged = () => {
+        const originalHiddenSpanNames = this.hiddenSpanNames;
+        const originalHiddenSpanIds = this.hiddenSpanIds;
+
+        this.loadOptions();
+
+        if (originalHiddenSpanNames.size === this.hiddenSpanNames.size
+            && originalHiddenSpanIds.size === this.hiddenSpanIds.size) {
+            return;
+        }
+
+        this.arrangeSpans();
+        this.updateSpanLocations();
+        this.render();
+    };
 
     private loadOptions() {
         const searchParams = new URL(document.URL).searchParams;
 
         this.groupSpans = searchParams.get("GroupSpans")?.toLowerCase() !== "false";
+        this.hiddenSpanNames = new Set(searchParams.get("HiddenSpanNames")?.split("|") ?? []);
+        this.hiddenSpanIds = new Set(searchParams.get("HiddenSpanIds")?.split("|") ?? []);
     }
 
     private setHotSpan() {
@@ -351,10 +398,10 @@ class TraceRenderer {
 
         this.hotSpan =
             (this.spansByRow[hotRowIndex] ?? [])
-            .find(s =>
-                (this.left + s.absolutePixelPositionX) < this.pointerX
-                && (this.left + s.absolutePixelPositionX + s.pixelWidth) > this.pointerX
-            );
+                .find(s =>
+                    (this.left + s.absolutePixelPositionX) < this.pointerX
+                    && (this.left + s.absolutePixelPositionX + s.pixelWidth) > this.pointerX
+                );
 
         if (this.hotSpan === undefined) {
             this.hotSpansParents.clear();
@@ -373,11 +420,27 @@ class TraceRenderer {
     private arrangeSpans() {
         this.spansByRow = [];
 
+        let spansToRemove = (this.hiddenSpanNames.size > 0 || this.hiddenSpanIds.size > 0)
+            ? new Set(
+                this.spans
+                    .filter(s => this.hiddenSpanNames.has(s.name) || this.hiddenSpanIds.has(s.id))
+                    .flatMap(s => [...getSpansDepthFirst(s)])
+            )
+            : undefined;
+
+        this.filteredSpans =
+            spansToRemove === undefined
+                ? this.spans
+                : this.spans.filter(s => !spansToRemove.has(s));
+
         if (this.groupSpans) {
-            const spansDepthFirst = this.spans
+            let spansDepthFirst = this.filteredSpans
                 .filter(s => s.parent === undefined)
-                .map(s => [...getSpansDepthFirst(s)])
-                .flat();
+                .flatMap(s => [...getSpansDepthFirst(s)]);
+
+            if (spansToRemove !== undefined) {
+                spansDepthFirst = spansDepthFirst.filter(s => !spansToRemove.has(s));
+            }
 
             for (const span of spansDepthFirst) {
                 let isInserted = false;
@@ -413,7 +476,7 @@ class TraceRenderer {
                 }
             }
         } else {
-            for (const span of this.spans) {
+            for (const span of this.filteredSpans) {
                 let isInserted = false;
                 for (let rowIndex = (span.parent?.rowIndex ?? -1) + 1; rowIndex < this.spansByRow.length; rowIndex++) {
                     const rowSpans = this.spansByRow[rowIndex];
@@ -458,9 +521,11 @@ class TraceRenderer {
     private render() {
         this.canvasContext.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 
+        // This gets unset with resizes etc, so just make sure it's always applied
+        this.canvasContext.font = `${FONT_SIZE()}px monospace`;
         this.canvasContext.textBaseline = "middle";
 
-        for (const span of this.spans) {
+        for (const span of this.filteredSpans) {
             if (
                 // Off screen to the left
                 span.absolutePixelPositionX + span.pixelWidth + this.left < 0
@@ -605,7 +670,7 @@ class TraceRenderer {
     private updateSpanLocations() {
         const msToPixels = (this.canvasElement.width / this.durationMs) * this.zoomRatio;
 
-        for (const span of this.spans) {
+        for (const span of this.filteredSpans) {
             span.absolutePixelPositionX = (span.startTimeMs - this.startMs) * msToPixels;
             span.pixelWidth = (span.endTimeMs - span.startTimeMs) * msToPixels;
         }
@@ -650,6 +715,14 @@ class TraceRenderer {
             default:
                 return "auto";
         }
+    }
+
+    public dispose() {
+        document.removeEventListener("change", this.document_change);
+        window.removeEventListener("locationchange", this.window_urlChanged);
+        window.removeEventListener("popstate", this.window_urlChanged);
+
+        this.disposalObserver.disconnect();
     }
 }
 

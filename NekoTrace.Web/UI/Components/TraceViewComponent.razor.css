@@ -20,6 +20,10 @@ canvas {
 
 .info {
 	overflow: auto;
+	padding: 1em;
+	gap: 1em;
+	display: flex;
+	flex-direction: column;
 }
 
 h1 {

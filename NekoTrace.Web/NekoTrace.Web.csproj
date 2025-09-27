@@ -6,7 +6,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <UserSecretsId>389d3aa4-6bfc-45e4-90b8-6cf0cd0ea7a2</UserSecretsId>
         <PublishIISAssets>false</PublishIISAssets>
-        <Version>0.1.0</Version>
+        <Version>0.2.0</Version>
     </PropertyGroup>
 
     <ItemGroup>

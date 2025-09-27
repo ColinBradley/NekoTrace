@@ -27,6 +27,12 @@ public partial class TraceViewComponent
     [SupplyParameterFromQuery]
     public string? SelectedSpanId { get; set; }
 
+    [SupplyParameterFromQuery]
+    public string? HiddenSpanNames { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? HiddenSpanIds { get; set; }
+
     [Inject]
     public required TracesRepository TracesRepo { get; set; }
 
@@ -70,6 +76,11 @@ public partial class TraceViewComponent
             || object.ReferenceEquals(mClientSpans, trace.Spans)
         )
         {
+            if (trace is null || this.TraceFlameCanvas is null)
+            {
+                mClientSpans = [];
+            }
+
             return;
         }
 

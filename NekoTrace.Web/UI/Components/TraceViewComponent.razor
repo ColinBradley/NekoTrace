@@ -1,171 +1,185 @@
 ﻿@{
-    var trace = this.Trace;
-    if (trace is null)
-    {
-        if (!this.IsSmallMode)
-        {
-            <h1>
-                Unknown Trace
-            </h1>
-        }
+	var trace = this.Trace;
+	if (trace is null)
+	{
+		if (!this.IsSmallMode)
+		{
+			<h1>
+				Unknown Trace
+			</h1>
+		}
 
-        return;
-    }
+		return;
+	}
 }
 
 <div class="trace @(this.IsSmallMode ? "small" : "full")">
-    @if (!this.IsSmallMode)
-    {
-        <h1>
-            <a href="/">Traces</a> / @(trace.RootSpan?.Name ?? trace.Id)
-        </h1>
-    }
+	@if (!this.IsSmallMode)
+	{
+		<h1>
+			<a href="/">Traces</a> / @(trace.RootSpan?.Name ?? trace.Id)
+		</h1>
+	}
 
-    <div class="commands inline-controls" style="align-items: center;">
-        @if (this.IsSmallMode)
-        {
-            <a href="traces/@Uri.EscapeDataString(this.TraceId)">
-                Full View
-            </a>
-        }
+	<div class="commands inline-controls" style="align-items: center;">
+		@if (this.IsSmallMode)
+		{
+			<a href="traces/@Uri.EscapeDataString(this.TraceId)">
+				Full View
+			</a>
+		}
 
-        <a href="/api/trace-files?traceId=@Uri.EscapeDataString(this.TraceId)" download>
-            Export
-        </a>
+		<a href="/api/trace-files?traceId=@Uri.EscapeDataString(this.TraceId)" download>
+			Export
+		</a>
 
-        <label class="inline-control">
-            <input type="checkbox" checked="@(this.GroupSpans ?? true)" @onchange="this.GroupSpans_Change" />
-            <span>
-                Group Spans
-            </span>
-        </label>
+		<label class="inline-control">
+			<input type="checkbox" checked="@(this.GroupSpans ?? true)" @onchange="this.GroupSpans_Change" />
+			<span>
+				Group Spans
+			</span>
+		</label>
 
-        <hint>
-            <hint-icon style="anchor-name: --trace-hint-icon">
-                ❔
-            </hint-icon>
-            <hint-content style="position-anchor: --trace-hint-icon;">
-                <h2>
-                    Tips
-                </h2>
-                <ul>
-                    <li>
-                        Click and drag to pan.
-                    </li>
-                    <li>
-                        <code>MouseWheel</code> to zoom in and out.
-                    </li>
-                    <li>
-                        <code>Alt + MouseWheel</code> to scroll vertically.
-                    </li>
-                    <li>
-                        <code>Alt + Shift + MouseWheel</code> to scroll horizontally.
-                    </li>
-                    <li>
-                        Double click to reset zoom and location.
-                    </li>
-                </ul>
-            </hint-content>
-        </hint>
+		<hint>
+			<hint-icon style="anchor-name: --trace-hint-icon">
+				❔
+			</hint-icon>
+			<hint-content style="position-anchor: --trace-hint-icon;">
+				<h2>
+					Tips
+				</h2>
+				<ul>
+					<li>
+						Click and drag to pan.
+					</li>
+					<li>
+						<code>MouseWheel</code> to zoom in and out.
+					</li>
+					<li>
+						<code>Alt + MouseWheel</code> to scroll vertically.
+					</li>
+					<li>
+						<code>Alt + Shift + MouseWheel</code> to scroll horizontally.
+					</li>
+					<li>
+						Double click to reset zoom and location.
+					</li>
+				</ul>
+			</hint-content>
+		</hint>
 
-        <button @onclick="this.RemoveButton_Click"
-                class="danger"
-                style="margin-inline-start: auto;">
-            Remove
-        </button>
-    </div>
+		<button @onclick="this.RemoveButton_Click"
+				class="danger"
+				style="margin-inline-start: auto;">
+			Remove
+		</button>
+	</div>
 
-    <canvas @ref="this.TraceFlameCanvas"
-            width="@(this.IsSmallMode ? 900 : 1100)"
-            height="@(this.IsSmallMode ? 500 : 1000)"
-            data-span-color-selector="@this.EffectiveSpanColorSelector" />
+	<canvas @ref="this.TraceFlameCanvas"
+			width="@(this.IsSmallMode ? 900 : 1100)"
+			height="@(this.IsSmallMode ? 500 : 1000)"
+			data-span-color-selector="@this.EffectiveSpanColorSelector" />
 
-    <div class="info">
-        @if (this.SelectedSpan is not null)
-        {
-            <dl class="span-info">
-                <dt>Name</dt>
-                <dd class="name">
-                    <a href="@($"/spans/{Uri.EscapeDataString(this.SelectedSpan.Name)}")">
-                        @this.SelectedSpan.Name
-                    </a>
-                </dd>
-                <dt>Start</dt>
-                <dd class="duration">
-                    @(this.SelectedSpan.StartTime - trace.Start)
-                </dd>
-                <dt>Duration</dt>
-                <dd class="duration">
-                    @(this.SelectedSpan.DurationText)
-                </dd>
-                <dt>Performance</dt>
-                <dd class="performance">
-                    @{
-                        var performance = this.TracesRepo.SpanRepositoriesByName.TryGetValue(this.SelectedSpan.Name, out var spanRepository)
-                        ? "p" + ((this.SelectedSpan.Duration.TotalMilliseconds / spanRepository.MaxDuration.TotalMilliseconds) * 100).ToString("G3")
-                        : null;
-                    }
-                    @performance
-                </dd>
-                <dt>Kind</dt>
-                <dd class="kind">
-                    @this.SelectedSpan.Kind
-                </dd>
-                <dt>Parent</dt>
-                <dd class="parent">
-                    @if (trace.SpansById.TryGetValue(this.SelectedSpan.ParentSpanId ?? string.Empty, out var parentSpan))
-                    {
-                        @parentSpan.Name
-                    }
-                </dd>
-                @if (!string.IsNullOrEmpty(this.SelectedSpan.StatusMessage))
-                {
-                    <dt>Message</dt>
-                    <dd class="status-message">
-                        @this.SelectedSpan.StatusMessage
-                    </dd>
-                }
-                @foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key))
-                {
-                    <dt>
-                        @spanAttribute.Key
-                    </dt>
-                    <dd class="value">
-                        @spanAttribute.Value
-                    </dd>
-                }
-            </dl>
+	<div class="info">
+		@if (this.SelectedSpan is not null)
+		{
+			// Note: blazor (in Visual Studio) doesn't format C# very well atm, so we're stuck with this mess ¬_¬
+			var hideNameUrl = this.Navigation.GetUriWithQueryParameter(nameof(this.HiddenSpanNames),string.Join('|',(this.HiddenSpanNames ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries).Concat([this.SelectedSpan.Name]).Distinct(StringComparer.Ordinal)));
+			var hideIdUrl = this.Navigation.GetUriWithQueryParameter(nameof(this.HiddenSpanIds),string.Join('|',(this.HiddenSpanIds ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries).Concat([this.SelectedSpan.Id]).Distinct(StringComparer.Ordinal)));
 
-            @if (this.SelectedSpan.Events.Length > 0)
-            {
-                <h2>
-                    Events
-                </h2>
-                <div class="events">
-                    @foreach (var spanEvent in this.SelectedSpan.Events)
-                    {
-                        <dl class="event span-info">
-                            <dt>Name</dt>
-                            <dd class="name">
-                                @spanEvent.Name
-                            </dd>
-                            <dt>Time</dt>
-                            <dd class="time">
-                                @spanEvent.Time
-                            </dd>
-                            @foreach (var eventAttribute in spanEvent.Attributes)
-                            {
-                                <dt class="key">
-                                    @eventAttribute.Key
-                                </dt>
-                                <dd class="value">
-                                    @eventAttribute.Value
-                                </dd>
-                            }
-                        </dl>
-                    }
-                </div>
-            }
-        }
-    </div>
+			<div style="display: flex; gap: 1ch;">
+				<a href="@hideIdUrl">
+					Hide span
+				</a>
+
+				<a href="@hideNameUrl">
+					Hide spans with name
+				</a>
+			</div>
+
+			<dl class="span-info">
+				<dt>Name</dt>
+				<dd class="name">
+					<a href="@($"/spans/{Uri.EscapeDataString(this.SelectedSpan.Name)}")">
+						@this.SelectedSpan.Name
+					</a>
+				</dd>
+				<dt>Start</dt>
+				<dd class="duration">
+					@(this.SelectedSpan.StartTime - trace.Start)
+				</dd>
+				<dt>Duration</dt>
+				<dd class="duration">
+					@(this.SelectedSpan.DurationText)
+				</dd>
+				<dt>Performance</dt>
+				<dd class="performance">
+					@{
+						var performance = this.TracesRepo.SpanRepositoriesByName.TryGetValue(this.SelectedSpan.Name, out var spanRepository)
+						? "p" + ((this.SelectedSpan.Duration.TotalMilliseconds / spanRepository.MaxDuration.TotalMilliseconds) * 100).ToString("G3")
+						: null;
+					}
+					@performance
+				</dd>
+				<dt>Kind</dt>
+				<dd class="kind">
+					@this.SelectedSpan.Kind
+				</dd>
+				<dt>Parent</dt>
+				<dd class="parent">
+					@if (trace.SpansById.TryGetValue(this.SelectedSpan.ParentSpanId ?? string.Empty, out var parentSpan))
+					{
+						@parentSpan.Name
+					}
+				</dd>
+				@if (!string.IsNullOrEmpty(this.SelectedSpan.StatusMessage))
+				{
+					<dt>Message</dt>
+					<dd class="status-message">
+						@this.SelectedSpan.StatusMessage
+					</dd>
+				}
+				@foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key))
+				{
+					<dt>
+						@spanAttribute.Key
+					</dt>
+					<dd class="value">
+						@spanAttribute.Value
+					</dd>
+				}
+			</dl>
+
+			@if (this.SelectedSpan.Events.Length > 0)
+			{
+				<h2>
+					Events
+				</h2>
+				<div class="events">
+					@foreach (var spanEvent in this.SelectedSpan.Events)
+					{
+						<dl class="event span-info">
+							<dt>Name</dt>
+							<dd class="name">
+								@spanEvent.Name
+							</dd>
+							<dt>Time</dt>
+							<dd class="time">
+								@spanEvent.Time
+							</dd>
+							@foreach (var eventAttribute in spanEvent.Attributes)
+							{
+								<dt class="key">
+									@eventAttribute.Key
+								</dt>
+								<dd class="value">
+									@eventAttribute.Value
+								</dd>
+							}
+						</dl>
+					}
+				</div>
+			}
+		}
+	</div>
 </div>
