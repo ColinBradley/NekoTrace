@@ -103,6 +103,7 @@ class TraceRenderer {
         this.disposalObserver = new MutationObserver(this.parentElement_mutated);
         this.disposalObserver.observe(canvasElement.parentElement!.parentElement!, { childList: true });
 
+        this.canvasContext.font = `${FONT_SIZE()}px monospace`;
         this.characterPixelWidth = this.canvasContext.measureText('L').width;
 
         this.loadOptions();
