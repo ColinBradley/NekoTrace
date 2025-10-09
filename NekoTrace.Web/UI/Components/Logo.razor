@@ -2,6 +2,7 @@
 	var barWidth = 25;
 	var barGap = 5;
 	var barWidthWithGap = barWidth + barGap;
+	var fillColor = this.IsHalloween ? "red" : "#000";
 }
 
 <svg viewBox="0 0 @(barWidthWithGap * 19 + barWidth) 420" role="img" width="3ch">
@@ -15,7 +16,8 @@
 				fill: #fff;
 			}
 			line, ellipse {
-				stroke: #000;
+				stroke: @fillColor;
+				fill: @fillColor;
 			}
 		</style>
 	</defs>
@@ -43,3 +45,9 @@
 	<ellipse stroke-width="10" cx="@((barWidthWithGap * 14) + (barWidth / 2))" cy="130" ry="30" rx="30" />
 	<ellipse stroke-width="10" cx="@((barWidthWithGap * 17) + (barWidth / 2))" cy="130" ry="30" rx="30" />
 </svg>
+
+@code
+{
+	[Parameter]
+	public bool IsHalloween { get; set; }
+}

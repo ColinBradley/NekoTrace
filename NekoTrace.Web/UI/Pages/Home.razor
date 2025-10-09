@@ -3,8 +3,12 @@
 @using Microsoft.AspNetCore.Components.QuickGrid
 @using System.Collections.Immutable
 
+@{
+    var isHalloween = DateTimeOffset.Now is { Month: 10 };
+}
+
 <PageTitle>
-    Traces - NekoTrace @sAssemblyVersion
+    Traces - @(isHalloween ? "NecroTrace" : "NekoTrace") @sAssemblyVersion
 </PageTitle>
 
 <div class="page">
@@ -12,7 +16,7 @@
     <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 1em; grid-column: 1/3; padding: 1em;">
         <h1 style="display: inline-flex; align-items: center; gap: .5ch;">
             <a href="/" title="NekoTrace">
-                <Logo />
+                <Logo IsHalloween="@isHalloween" />
             </a>
 
             <a href="@this.Navigation.GetUriWithQueryParameter("TraceId", (string?)null)">
@@ -117,13 +121,30 @@
         {
             <div style="grid-area: 1/1; align-self: stretch; display: grid; align-content: center; justify-items: center; opacity: .5; user-select: none;">
                 <h2 style="margin-top: 40px;">
-                    Olaf the neko doesn't see any traces just yet.
+                    @if (isHalloween)
+                    {
+                        @:Olaf the necro neko doesn't see any traces just yet.
+                    }
+                    else
+                    {
+                        @:Olaf the neko doesn't see any traces just yet.
+                    }
                 </h2>
 
-                <img src="@this.Assets["images/OlafLabCoat.webp"]"
-                     alt="Olaf the neko" 
-                     title="Art by Chaos Cola https://bsky.app/profile/chaos-cola.com" 
-                     style="max-width: 50ch;" />
+                @if (isHalloween)
+                {
+                    <img src="@this.Assets["images/OlafLabCoatNecro.png"]"
+                         alt="Olaf the necro neko"
+                         title="Original Art by Chaos Cola https://bsky.app/profile/chaos-cola.com, remixed by Braya Oal"
+                         style="max-width: 50ch;" />
+                }
+                else
+                {
+                    <img src="@this.Assets["images/OlafLabCoat.webp"]"
+                         alt="Olaf the neko" 
+                         title="Art by Chaos Cola https://bsky.app/profile/chaos-cola.com" 
+                         style="max-width: 50ch;" />
+                }
             </div>
         }
 
