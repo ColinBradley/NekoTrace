@@ -8,7 +8,7 @@
 }
 
 <PageTitle>
-    Traces - @(isHalloween ? "NecroTrace" : "NekoTrace") @sAssemblyVersion
+    Traces - @(isHalloween ? "NecroTrace 🎃" : "NekoTrace") @sAssemblyVersion
 </PageTitle>
 
 <div class="page">
@@ -123,7 +123,7 @@
                 <h2 style="margin-top: 40px;">
                     @if (isHalloween)
                     {
-                        @:Olaf the necro neko doesn't see any traces just yet.
+                        @:Necro the neko doesn't see any traces just yet.
                     }
                     else
                     {
@@ -133,8 +133,8 @@
 
                 @if (isHalloween)
                 {
-                    <img src="@this.Assets["images/OlafLabCoatNecro.png"]"
-                         alt="Olaf the necro neko"
+                    <img src="@this.Assets["images/NecroNeko.png"]"
+                         alt="Necro the neko"
                          title="Original Art by Chaos Cola https://bsky.app/profile/chaos-cola.com, remixed by Braya Oal"
                          style="max-width: 50ch;" />
                 }
