@@ -1,7 +1,9 @@
+using ApexCharts;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using NekoTrace.Web.Configuration;
 using NekoTrace.Web.GrpcServices;
-using NekoTrace.Web.Repositories;
+using NekoTrace.Web.Repositories.Metrics;
+using NekoTrace.Web.Repositories.Traces;
 using NekoTrace.Web.UI;
 
 var configFilePath = Path.Combine(
@@ -23,7 +25,8 @@ webAppBuilder.Services.Configure<NekoTraceConfiguration>(nekoTraceConfigurationS
 var nekoTraceConfiguration = new NekoTraceConfiguration();
 nekoTraceConfigurationSection.Bind(nekoTraceConfiguration);
 
-var traces = new TracesRepository(webAppBuilder.Configuration);
+using var traces = new TracesRepository(webAppBuilder.Configuration);
+using var metrics = new MetricsRepository();
 
 var collectorAppTask = Task.Run(async () =>
 {
@@ -44,6 +47,7 @@ var collectorAppTask = Task.Run(async () =>
     collectorAppBuilder.Services.AddGrpc();
 
     collectorAppBuilder.Services.AddSingleton(traces);
+    collectorAppBuilder.Services.AddSingleton(metrics);
 
     collectorAppBuilder.WebHost.ConfigureKestrel(o =>
         o.ListenAnyIP(
@@ -70,6 +74,9 @@ var webAppTask = Task.Run(async () =>
     });
 
     webAppBuilder.Services.AddSingleton(traces);
+    webAppBuilder.Services.AddSingleton(metrics);
+
+    webAppBuilder.Services.AddApexCharts();
     webAppBuilder.Services.AddHttpContextAccessor();
     webAppBuilder.Services.AddRazorComponents().AddInteractiveServerComponents();
     webAppBuilder.Services.AddControllers();

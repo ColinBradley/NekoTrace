@@ -1,7 +1,7 @@
+namespace NekoTrace.Web.GrpcServices;
+
 using Grpc.Core;
 using OpenTelemetry.Proto.Collector.Logs.V1;
-
-namespace NekoTrace.Web.GrpcServices;
 
 public class LogsServiceImplementation : LogsService.LogsServiceBase
 {
@@ -10,8 +10,6 @@ public class LogsServiceImplementation : LogsService.LogsServiceBase
         ServerCallContext context
     )
     {
-        Console.WriteLine("log");
-
         return Task.FromResult(
             new ExportLogsServiceResponse()
             {

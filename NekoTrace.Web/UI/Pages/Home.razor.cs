@@ -1,28 +1,28 @@
 namespace NekoTrace.Web.UI.Pages;
 
-using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
-using NekoTrace.Web.Repositories;
+using NekoTrace.Web.Repositories.Traces;
 using NekoTrace.Web.UI.Components;
+using System.Collections.Immutable;
+using System.Linq;
 
 public sealed partial class Home : IDisposable
 {
     private static readonly string sAssemblyVersion = "v" + (System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "Unknown");
 
     private ImmutableHashSet<string> mIgnoredTraceNamesSet = [];
-    private string? mIgnoredTraceNamesRaw = null;
+    private string? mIgnoredTraceNamesRaw;
 
     private ImmutableHashSet<string> mExclusiveTraceNamesSet = [];
-    private string? mExclusiveTraceNamesRaw = null;
+    private string? mExclusiveTraceNamesRaw;
 
     private ImmutableDictionary<string, string> mSpanAttributeFilter = ImmutableDictionary<
         string,
         string
     >.Empty;
 
-    private string? mSpanAttributeFilterRaw = null;
+    private string? mSpanAttributeFilterRaw;
 
     private DateTimeOffset? mStartTime;
     private string? mStartTimeRaw;
@@ -30,7 +30,7 @@ public sealed partial class Home : IDisposable
     private DateTimeOffset? mEndTime;
     private string? mEndTimeRaw;
 
-    private bool mHasPendingRefresh = false;
+    private bool mHasPendingRefresh;
 
     [Inject]
     public required TracesRepository TracesRepo { get; set; }
@@ -192,10 +192,11 @@ public sealed partial class Home : IDisposable
         }
     }
 
-    private GridSort<Trace> TraceStartGridSort { get; } = GridSort<Trace>.ByAscending(t => t.Start);
+    private GridSort<TraceItem> TraceStartGridSort { get; } =
+        GridSort<TraceItem>.ByAscending(t => t.Start);
 
-    private GridSort<Trace> TraceHasErrorGridSort { get; } =
-        GridSort<Trace>.ByAscending(t => t.HasError);
+    private GridSort<TraceItem> TraceHasErrorGridSort { get; } =
+        GridSort<TraceItem>.ByAscending(t => t.HasError);
 
     private IEnumerable<(string Name, int Count)> TraceNamesWithCounts =>
         this.TracesRepo.Traces
@@ -206,7 +207,7 @@ public sealed partial class Home : IDisposable
             .Select(g => (g.Key, g.Count()))
             .OrderBy(g => g.Key);
 
-    private IQueryable<Trace> FilteredTraces =>
+    private IQueryable<TraceItem> FilteredTraces =>
         this.TracesRepo.Traces
             .Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
             .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
@@ -221,7 +222,9 @@ public sealed partial class Home : IDisposable
             )
             .Where(t =>
                 this.ExclusiveTraceNames == null
-                || (t.RootSpan != null && this.ExclusiveTraceNamesSet.Contains(t.RootSpan.Name))
+                || (t.RootSpan != null
+                    && this.ExclusiveTraceNamesSet.Contains(t.RootSpan.Name)
+                )
             )
             .Where(t => this.TracePassesFilter(t));
 
@@ -401,7 +404,7 @@ public sealed partial class Home : IDisposable
         );
     }
 
-    private bool TracePassesFilter(Trace trace)
+    private bool TracePassesFilter(TraceItem trace)
     {
         var parsedSpanAttributesFilter = this.ParsedSpanAttributesFilter;
         if (parsedSpanAttributesFilter.Count is 0)

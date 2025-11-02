@@ -1,10 +1,12 @@
-﻿namespace NekoTrace.Web.Repositories;
+﻿namespace NekoTrace.Web.Repositories.Traces;
 
+using NekoTrace.Web.Utilities;
 using System.Collections.Immutable;
+using System.Globalization;
 
-public sealed record Trace
+public sealed record TraceItem : IDisposable
 {
-    private readonly ReaderWriterLockSlim mLock = new();
+    private readonly BetterReaderWriterLock mLock = new();
 
     public required string Id { get; init; }
 
@@ -31,8 +33,8 @@ public sealed record Trace
             {
                 string stringValue => stringValue,
                 bool v => v.ToString(),
-                int v => v.ToString(),
-                double v => v.ToString(),
+                int v => v.ToString(CultureInfo.InvariantCulture),
+                double v => v.ToString(CultureInfo.InvariantCulture),
                 _ => null,
             }
             : null;
@@ -40,25 +42,23 @@ public sealed record Trace
 
     internal void AddSpan(SpanData span)
     {
-        mLock.EnterWriteLock();
-
-        this.AddSpanCore(span);
-
-        mLock.ExitWriteLock();
+        using (mLock.Write())
+        {
+            this.AddSpanCore(span);
+        }
 
         this.Repository.OnTraceChanged();
     }
 
     internal void AddSpans(IEnumerable<SpanData> spans)
     {
-        mLock.EnterWriteLock();
-
-        foreach (var span in spans)
+        using (mLock.Write())
         {
-            this.AddSpanCore(span);
+            foreach (var span in spans)
+            {
+                this.AddSpanCore(span);
+            }
         }
-
-        mLock.ExitWriteLock();
 
         this.Repository.OnTraceChanged();
     }
@@ -98,5 +98,10 @@ public sealed record Trace
         }
 
         this.Repository.AddSpan(span);
+    }
+
+    public void Dispose()
+    {
+        mLock.Dispose();
     }
 }

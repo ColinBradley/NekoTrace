@@ -1,13 +1,13 @@
 ﻿namespace NekoTrace.Web.Controllers;
 
 using Microsoft.AspNetCore.Mvc;
-using NekoTrace.Web.Repositories;
+using NekoTrace.Web.Repositories.Traces;
 using System.IO.Compression;
 using System.Text.Json;
 
 [Route("api/trace-files")]
 [ApiController]
-public class TraceFilesController : ControllerBase
+public sealed class TraceFilesController : ControllerBase
 {
     private readonly TracesRepository mTraces;
 
@@ -41,7 +41,7 @@ public class TraceFilesController : ControllerBase
 
         await JsonSerializer.SerializeAsync(
             compressionStream,
-            new TraceData() { Id = trace.Id, Spans = [.. trace.Spans] },
+            new TraceSerializableData() { Id = trace.Id, Spans = [.. trace.Spans] },
             cancellationToken: cancellationToken
         );
     }
@@ -55,22 +55,24 @@ public class TraceFilesController : ControllerBase
         {
             await using var fileStream = file.OpenReadStream();
 
-            TraceData? uploadedTrace;
-            if (string.IsNullOrEmpty(file.FileName) || file.FileName.EndsWith(".gz"))
+            TraceSerializableData? uploadedTrace;
+            if (string.IsNullOrEmpty(file.FileName)
+                || file.FileName.EndsWith(".gz", StringComparison.OrdinalIgnoreCase)
+            )
             {
                 await using var decompressionStream = new GZipStream(
                     fileStream,
                     CompressionMode.Decompress
                 );
 
-                uploadedTrace = await JsonSerializer.DeserializeAsync<TraceData>(
+                uploadedTrace = await JsonSerializer.DeserializeAsync<TraceSerializableData>(
                     decompressionStream,
                     cancellationToken: cancellationToken
                 );
             }
             else
             {
-                uploadedTrace = await JsonSerializer.DeserializeAsync<TraceData>(
+                uploadedTrace = await JsonSerializer.DeserializeAsync<TraceSerializableData>(
                     fileStream,
                     cancellationToken: cancellationToken
                 );

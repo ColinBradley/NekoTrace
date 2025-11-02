@@ -1,17 +1,18 @@
-﻿namespace NekoTrace.Web.Repositories;
+﻿namespace NekoTrace.Web.Repositories.Traces;
 
 using Google.Protobuf;
 using NekoTrace.Web.Configuration;
+using NekoTrace.Web.Utilities;
 using System.Collections.Concurrent;
 
-public class TracesRepository : IDisposable
+public sealed class TracesRepository : IDisposable
 {
     private readonly ConfigurationManager mConfiguration;
     private readonly Timer mTrimTimer;
 
-    private readonly ReaderWriterLockSlim mTracesLock = new();
+    private readonly BetterReaderWriterLock mTracesLock = new();
 
-    private readonly Dictionary<string, Trace> mTracesById = [];
+    private readonly Dictionary<string, TraceItem> mTracesById = [];
     private readonly ConcurrentDictionary<string, SpanRepository> mSpansByName = [];
 
     public TracesRepository(ConfigurationManager configuration)
@@ -22,54 +23,38 @@ public class TracesRepository : IDisposable
 
     public event Action? TracesChanged;
 
-    public IQueryable<Trace> Traces { get; private set; } =
-        Array.Empty<Trace>().AsQueryable();
+    public IQueryable<TraceItem> Traces { get; private set; } =
+        Array.Empty<TraceItem>().AsQueryable();
 
     public IReadOnlyDictionary<string, SpanRepository> SpanRepositoriesByName => mSpansByName;
 
-    public Trace? TryGetTrace(string id)
+    public TraceItem? TryGetTrace(string id)
     {
-        mTracesLock.EnterReadLock();
+        using var readLock = mTracesLock.Read();
 
-        try
-        {
-            return mTracesById.TryGetValue(id, out var trace)
-                ? trace
-                : null;
-        }
-        finally
-        {
-            mTracesLock.ExitReadLock();
-        }
+        return mTracesById.TryGetValue(id, out var trace)
+            ? trace
+            : null;
     }
 
-    internal Trace GetOrAddTrace(ByteString traceId)
+    internal TraceItem GetOrAddTrace(ByteString traceId)
     {
         var stringId = traceId.ToBase64();
 
-        mTracesLock.EnterUpgradeableReadLock();
+        using var readLock = mTracesLock.UpgradeableRead();
 
-        try
+        if (!mTracesById.TryGetValue(stringId, out var trace))
         {
-            if (!mTracesById.TryGetValue(stringId, out var trace))
+            using var writeLock = mTracesLock.Write();
+
+            if (!mTracesById.TryGetValue(stringId, out trace))
             {
-                mTracesLock.EnterWriteLock();
-
-                if (!mTracesById.TryGetValue(stringId, out trace))
-                {
-                    trace = mTracesById[stringId] = new Trace() { Id = stringId, Repository = this };
-                    this.Traces = mTracesById.Values.ToArray().AsQueryable();
-                }
-
-                mTracesLock.ExitWriteLock();
+                trace = mTracesById[stringId] = new TraceItem() { Id = stringId, Repository = this };
+                this.Traces = mTracesById.Values.ToArray().AsQueryable();
             }
+        }
 
-            return trace;
-        }
-        finally
-        {
-            mTracesLock.ExitUpgradeableReadLock();
-        }
+        return trace;
     }
 
     internal void AddSpan(SpanData span)
@@ -87,11 +72,9 @@ public class TracesRepository : IDisposable
         this.TracesChanged?.Invoke();
     }
 
-    internal void RemoveTrace(Trace trace)
+    internal void RemoveTrace(TraceItem trace)
     {
-        mTracesLock.EnterWriteLock();
-
-        try
+        using (var writeLock = mTracesLock.Write())
         {
             if (!mTracesById.Remove(trace.Id))
             {
@@ -102,10 +85,6 @@ public class TracesRepository : IDisposable
 
             this.Traces = mTracesById.Values.ToArray().AsQueryable();
         }
-        finally
-        {
-            mTracesLock.ExitWriteLock();
-        }
 
         this.TracesChanged?.Invoke();
     }
@@ -115,7 +94,7 @@ public class TracesRepository : IDisposable
         var nekoTraceConfig = new NekoTraceConfiguration();
         mConfiguration.Bind("NekoTrace", nekoTraceConfig);
 
-        var maxSpanAge = nekoTraceConfig?.MaxSpanAge;
+        var maxSpanAge = nekoTraceConfig.MaxSpanAge;
         if (maxSpanAge is null)
         {
             return;
@@ -123,9 +102,7 @@ public class TracesRepository : IDisposable
 
         var oldTime = DateTimeOffset.Now.Subtract(maxSpanAge.Value);
 
-        mTracesLock.EnterUpgradeableReadLock();
-
-        try
+        using (mTracesLock.Write())
         {
             var tracesToRemove = mTracesById.Values
                 .Where(t => t.Start < oldTime)
@@ -136,33 +113,20 @@ public class TracesRepository : IDisposable
                 return;
             }
 
-            mTracesLock.EnterWriteLock();
-
-            try
+            foreach (var oldTrace in tracesToRemove)
             {
-                foreach (var oldTrace in tracesToRemove)
-                {
-                    mTracesById.Remove(oldTrace.Id);
+                mTracesById.Remove(oldTrace.Id);
 
-                    this.RemoveTraceSpans(oldTrace);
-                }
+                this.RemoveTraceSpans(oldTrace);
+            }
 
-                this.Traces = mTracesById.Values.ToArray().AsQueryable();
-            }
-            finally
-            {
-                mTracesLock.ExitWriteLock();
-            }
-        }
-        finally
-        {
-            mTracesLock.ExitUpgradeableReadLock();
+            this.Traces = mTracesById.Values.ToArray().AsQueryable();
         }
 
         this.TracesChanged?.Invoke();
     }
 
-    private void RemoveTraceSpans(Trace oldTrace)
+    private void RemoveTraceSpans(TraceItem oldTrace)
     {
         foreach (var oldSpan in oldTrace.Spans)
         {
@@ -186,5 +150,6 @@ public class TracesRepository : IDisposable
 
         mTrimTimer.Dispose();
         mConfiguration.Dispose();
+        mTracesLock.Dispose();
     }
 }

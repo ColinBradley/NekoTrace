@@ -2,7 +2,7 @@ namespace NekoTrace.Web.UI.Components;
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
-using NekoTrace.Web.Repositories;
+using NekoTrace.Web.Repositories.Traces;
 using System.Collections.Immutable;
 
 public partial class TraceViewComponent
@@ -46,7 +46,7 @@ public partial class TraceViewComponent
 
     private IJSObjectReference? TraceModule { get; set; }
 
-    private Trace? Trace => this.TraceId is null ? null : this.TracesRepo.TryGetTrace(this.TraceId);
+    private TraceItem? Trace => this.TraceId is null ? null : this.TracesRepo.TryGetTrace(this.TraceId);
 
     private SpanData? SelectedSpan =>
         this.SelectedSpanId is not null

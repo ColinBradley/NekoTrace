@@ -16,6 +16,7 @@ body {
 * {
 	margin: 0;
 	padding: 0;
+	box-sizing: border-box;
 }
 
 a {
@@ -73,6 +74,10 @@ input {
 		padding: 0;
 	}
 
+	input[type=datetime-local] {
+		font-size: 1rem; /* I guess there's a part inside of the input that changes the font size ¬_¬ */
+	}
+
 form {
 	padding: 1em;
 }
@@ -89,6 +94,10 @@ form {
 	align-items: end;
 	gap: 1em;
 }
+
+	.inline-controls :is(input, button):not(input[type=checkbox]), .inline-controls input::file-selector-button {
+		height: 30px;
+	}
 
 .inline-control {
 	display: flex;

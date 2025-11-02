@@ -1,11 +1,11 @@
 namespace NekoTrace.Web.UI.Pages.Spans;
 
-using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
-using NekoTrace.Web.Repositories;
+using NekoTrace.Web.Repositories.Traces;
 using NekoTrace.Web.UI.Components;
+using System.Collections.Immutable;
+using System.Linq;
 
 public sealed partial class SpanPage : IDisposable
 {
@@ -13,7 +13,7 @@ public sealed partial class SpanPage : IDisposable
         string,
         string
     >.Empty;
-    private string? mSpanAttributeFilterRaw = null;
+    private string? mSpanAttributeFilterRaw;
 
     private DateTimeOffset? mStartTime;
     private string? mStartTimeRaw;
@@ -21,7 +21,7 @@ public sealed partial class SpanPage : IDisposable
     private DateTimeOffset? mEndTime;
     private string? mEndTimeRaw;
 
-    private bool mHasPendingRefresh = false;
+    private bool mHasPendingRefresh;
 
     [Inject]
     public required TracesRepository TracesRepo { get; set; }

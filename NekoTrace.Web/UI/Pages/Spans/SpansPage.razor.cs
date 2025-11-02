@@ -4,17 +4,17 @@ using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
-using NekoTrace.Web.Repositories;
+using NekoTrace.Web.Repositories.Traces;
 
 public sealed partial class SpansPage : IDisposable
 {
     private ImmutableHashSet<string> mIgnoredSpanNamesSet = [];
-    private string? mIgnoredSpanNamesRaw = null;
+    private string? mIgnoredSpanNamesRaw;
 
     private ImmutableHashSet<string> mExclusiveSpanNamesSet = [];
-    private string? mExclusiveSpanNamesRaw = null;
+    private string? mExclusiveSpanNamesRaw;
 
-    private bool mHasPendingRefresh = false;
+    private bool mHasPendingRefresh;
 
     [Inject]
     public required TracesRepository TracesRepo { get; set; }

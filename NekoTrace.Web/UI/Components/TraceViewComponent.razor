@@ -69,10 +69,17 @@
 		</hint>
 
 		<button @onclick="this.RemoveButton_Click"
-				class="danger"
-				style="margin-inline-start: auto;">
-			Remove
+				class="danger">
+			Delete
 		</button>
+
+		@if (this.IsSmallMode)
+		{
+			<a href="@this.Navigation.GetUriWithQueryParameter("TraceId", (string)null)"
+			   style="margin-inline-start: auto;">
+				Close
+			</a>
+		}
 	</div>
 
 	<canvas @ref="this.TraceFlameCanvas"

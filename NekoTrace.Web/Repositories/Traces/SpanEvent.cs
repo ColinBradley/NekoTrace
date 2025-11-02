@@ -1,4 +1,4 @@
-﻿namespace NekoTrace.Web.Repositories;
+﻿namespace NekoTrace.Web.Repositories.Traces;
 
 using System;
 using System.Collections.Generic;

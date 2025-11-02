@@ -1,8 +1,8 @@
-﻿namespace NekoTrace.Web.Repositories;
+﻿namespace NekoTrace.Web.Repositories.Traces;
 
 using System.Collections.Immutable;
 
-public sealed record TraceData
+public sealed record TraceSerializableData
 {
     public required string Id { get; init; }
 
