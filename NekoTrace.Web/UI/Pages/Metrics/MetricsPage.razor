@@ -36,7 +36,7 @@
 			{
 				<PropertyColumn Title="Resource"
 								Sortable="true"
-								Property="@(m => m.Resource.Attributes.FirstOrDefault().Value)" />
+								Property="@(m => m.Resource.Key.Value)" />
 			}
 
 			@if (this.ShowScopeName is true)
@@ -53,9 +53,9 @@
 							IsDefaultSortColumn="true"
 							Context="item">
 				<ChildContent>
-					<NavLink href="@this.Navigation.GetUriWithQueryParameter(nameof(this.MetricName), item.Name)"
+					<NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>() { [nameof(this.MetricName)] = item.Name, [nameof(this.ResourceKey)] = item.Resource.Key })"
 							 title="@item.Description"
-					@onclick="this.MetricLink_Click">
+							 @onclick="this.MetricLink_Click">
 						@item.Name
 					</NavLink>
 				</ChildContent>

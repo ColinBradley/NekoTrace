@@ -58,16 +58,23 @@ public partial class MetricsPage
     public string? MetricName { get; set; }
 
     [SupplyParameterFromQuery]
+    public string? ResourceKey { get; set; }
+
+    [SupplyParameterFromQuery]
     public bool? ShowResource { get; set; }
 
     [SupplyParameterFromQuery]
     public bool? ShowScopeName { get; set; }
 
-    private ApexChart<NumberDataPoint> Chart { get; set; }
+    private ApexChart<NumberDataPoint>? Chart { get; set; }
 
     private MetricItemBase? SelectedMetric =>
-        this.Metrics.FirstOrDefault(
-            m => string.Equals(m.Name, this.MetricName, StringComparison.OrdinalIgnoreCase)
+        this.Metrics.FirstOrDefault(m =>
+            string.Equals(m.Name, this.MetricName, StringComparison.OrdinalIgnoreCase)
+            && (
+                string.IsNullOrEmpty(this.ResourceKey)
+                || string.Equals(m.Resource.Key.Value, this.ResourceKey, StringComparison.OrdinalIgnoreCase)
+            )
         );
 
     private IQueryable<MetricItemBase> Metrics =>
@@ -84,6 +91,7 @@ public partial class MetricsPage
 
     private async void MetricLink_Click()
     {
+        // I dislike ApexChart's need for this
         await Task.Delay(10);
 
         _ = this.Chart?.RenderAsync();
