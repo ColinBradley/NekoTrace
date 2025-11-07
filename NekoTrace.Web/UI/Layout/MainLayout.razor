@@ -4,12 +4,14 @@
 
 @{
 	var isHalloween = DateTimeOffset.Now is { Month: 10, Day: >= 15 };
+	var isChristmas = DateTimeOffset.Now is { Month: 12, Day: >= 12 };
 }
 
 <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr);">
 	<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 1em; grid-column: 1/3; padding: .5em; padding-bottom: 0;">
 		<span title="NekoTrace" style="font-size:1.5em; display: inline-grid;">
-			<Logo IsHalloween="@isHalloween" />
+			<Logo IsHalloween="@isHalloween"
+				  IsChristmas="@isChristmas" />
 		</span>
 
 		<NavLink href="/"

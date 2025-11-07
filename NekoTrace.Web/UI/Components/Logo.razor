@@ -2,7 +2,12 @@
 	var barWidth = 25;
 	var barGap = 5;
 	var barWidthWithGap = barWidth + barGap;
-	var fillColor = this.IsHalloween ? "red" : "#000";
+	var fillColor = 
+		this.IsHalloween 
+			? "red" 
+			: this.IsChristmas
+				? "green"
+				: "#000";
 }
 
 <svg viewBox="0 0 @(barWidthWithGap * 19 + barWidth) 420" role="img" width="3ch">
@@ -50,4 +55,7 @@
 {
 	[Parameter]
 	public bool IsHalloween { get; set; }
+
+	[Parameter]
+	public bool IsChristmas { get; set; }
 }

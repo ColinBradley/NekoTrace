@@ -4,11 +4,19 @@
 @using System.Collections.Immutable
 
 @{
-	var isHalloween = DateTimeOffset.Now is { Month: 10 };
+	var isHalloween = DateTimeOffset.Now is { Month: 10, Day: >= 15 };
+	var isChristmas = DateTimeOffset.Now is { Month: 12, Day: >= 12 };
+
+	var title = 
+		isHalloween 
+			? "NecroTrace 🎃" 
+			: isChristmas
+				? "Nekomas 🎄"
+				: "NekoTrace";
 }
 
 <PageTitle>
-	Traces - @(isHalloween ? "NecroTrace 🎃" : "NekoTrace") @sAssemblyVersion
+	Traces - @title @sAssemblyVersion
 </PageTitle>
 
 <div class="page">
@@ -92,6 +100,10 @@
 					{
 						@:Necro the neko doesn't see any traces just yet.
 					}
+					else if (isChristmas)
+					{
+						@:Evie the christmas neko doesn't see any traces just yet.
+					}
 					else
 					{
 						@:Olaf the neko doesn't see any traces just yet.
@@ -102,6 +114,13 @@
 				{
 					<img src="@this.Assets["images/NecroNeko.png"]"
 						 alt="Necro the neko"
+						 title="Original Art by Chaos Cola https://bsky.app/profile/chaos-cola.com, remixed by Braya Oal"
+						 style="max-width: 50ch;" />
+				}
+				else if (isChristmas)
+				{
+					<img src="@this.Assets["images/ChristmasEvieNeko.png"]"
+						 alt="Evie the christmas neko"
 						 title="Original Art by Chaos Cola https://bsky.app/profile/chaos-cola.com, remixed by Braya Oal"
 						 style="max-width: 50ch;" />
 				}
