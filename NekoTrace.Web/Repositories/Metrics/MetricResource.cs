@@ -6,7 +6,7 @@ public sealed class MetricResource
 {
     public MetricResource()
     {
-        this.Key = new(() => string.Join("; ", this.Attributes?.Select(p => $"{p.Key}: {p.Value}") ?? []));
+        this.Key = new(() => string.Join("; ", this.Attributes?.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}: {p.Value}") ?? []));
     }
 
     public Lazy<string> Key { get; }

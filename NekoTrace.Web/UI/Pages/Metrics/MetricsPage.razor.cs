@@ -11,17 +11,21 @@ public partial class MetricsPage
 {
     public MetricsPage()
     {
-        this.ChartOptions.Theme = new Theme()
+        this.HistogramChartOptions.Theme = this.MetricChartOptions.Theme = new Theme()
         {
             Mode = Mode.Dark,
             Palette = PaletteType.Palette1,
         };
-        //this.ChartOptions.Chart.Background = "0000";
-        this.ChartOptions.Chart.Animations = new Animations()
+        //this.MetricChartOptions.Chart.Background = "0000";
+        this.HistogramChartOptions.Chart.Animations = this.MetricChartOptions.Chart.Animations = new Animations()
         {
             Enabled = false,
         };
-        this.ChartOptions.Xaxis = new XAxis()
+        this.HistogramChartOptions.Xaxis = new XAxis()
+        {
+            Type = XAxisType.Category,
+        };
+        this.MetricChartOptions.Xaxis = new XAxis()
         {
             Type = XAxisType.Datetime,
             Labels = new XAxisLabels()
@@ -29,12 +33,12 @@ public partial class MetricsPage
                 DatetimeUTC = true,
             },
         };
-        this.ChartOptions.Stroke = new Stroke()
+        this.MetricChartOptions.Stroke = new Stroke()
         {
             Curve = Curve.Smooth,
             Width = 3,
         };
-        this.ChartOptions.Tooltip = new Tooltip()
+        this.MetricChartOptions.Tooltip = new Tooltip()
         {
             X = new TooltipX()
             {
@@ -42,7 +46,7 @@ public partial class MetricsPage
                 Show = false,
             }
         };
-        this.ChartOptions.Grid = new Grid()
+        this.HistogramChartOptions.Grid = this.MetricChartOptions.Grid = new Grid()
         {
             BorderColor = "#333",
         };
@@ -66,7 +70,9 @@ public partial class MetricsPage
     [SupplyParameterFromQuery]
     public bool? ShowScopeName { get; set; }
 
-    private ApexChart<NumberDataPoint>? Chart { get; set; }
+    private ApexChart<NumberDataPoint>? MetricChart { get; set; }
+
+    private ApexChart<HistogramItem>? HistogramChart { get; set; }
 
     private MetricItemBase? SelectedMetric =>
         this.Metrics.FirstOrDefault(m =>
@@ -87,14 +93,17 @@ public partial class MetricsPage
     private GridSort<MetricItemBase> MetricNameGridSort { get; } =
         GridSort<MetricItemBase>.ByAscending(i => i.Name);
 
-    private ApexChartOptions<NumberDataPoint> ChartOptions { get; } = new();
+    private ApexChartOptions<NumberDataPoint> MetricChartOptions { get; } = new();
+
+    private ApexChartOptions<HistogramItem> HistogramChartOptions { get; } = new();
 
     private async void MetricLink_Click()
     {
         // I dislike ApexChart's need for this
         await Task.Delay(10);
 
-        _ = this.Chart?.RenderAsync();
+        _ = this.MetricChart?.RenderAsync();
+        _ = this.HistogramChart?.RenderAsync();
     }
 
     private void ShowResource_Input(ChangeEventArgs e)
@@ -106,4 +115,6 @@ public partial class MetricsPage
     {
         this.Navigation.NavigateTo(this.Navigation.GetUriWithQueryParameter(nameof(this.ShowScopeName), (bool)e.Value!));
     }
+
+    private sealed record HistogramItem(ulong Count, double Bound);
 }

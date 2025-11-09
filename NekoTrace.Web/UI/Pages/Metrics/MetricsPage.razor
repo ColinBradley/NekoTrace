@@ -53,7 +53,7 @@
 							IsDefaultSortColumn="true"
 							Context="item">
 				<ChildContent>
-					<NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>() { [nameof(this.MetricName)] = item.Name, [nameof(this.ResourceKey)] = item.Resource.Key })"
+					<NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>() { [nameof(this.MetricName)] = item.Name, [nameof(this.ResourceKey)] = item.Resource.Key.Value })"
 							 title="@item.Description"
 							 @onclick="this.MetricLink_Click">
 						@item.Name
@@ -69,13 +69,12 @@
 
 	@if (this.SelectedMetric is MetricDatapoints metricDatapoints)
 	{
-		var dataPointGroups = metricDatapoints.DataPoints.GroupBy(p => string.Join(" / ", p.Attributes.Where(a => a.Value.HasStringValue).Select(a => a.Value.StringValue)));
+		var dataPointGroups = metricDatapoints.DataPoints.GroupBy(p => string.Join(" / ", p.Attributes.OrderBy(a => a.Key, StringComparer.Ordinal).Where(a => a.Value.HasStringValue).Select(a => a.Value.StringValue)));
 
 		<div style="grid-row: 2; grid-column: 2; width: 700px; height: 400px; padding: 2em;">
-			<ApexChart TItem="NumberDataPoint"
-					   Options="this.ChartOptions"
+			<ApexChart Options="this.MetricChartOptions"
 					   Title="@metricDatapoints.Name"
-					   @ref="this.Chart">
+					   @ref="this.MetricChart">
 
 				@foreach (var dataPoints in dataPointGroups)
 				{
@@ -83,6 +82,29 @@
 									 Name="@(dataPoints.Key ?? metricDatapoints.Name)"
 									 XValue="p => DateTimeOffset.FromUnixTimeMilliseconds(Convert.ToInt64(p.TimeUnixNano / 1_000_000))"
 									 YValue="e => e.ValueCase switch { NumberDataPoint.ValueOneofCase.AsInt => Convert.ToDecimal(e.AsInt), _ => Convert.ToDecimal(e.AsDouble) }" />
+				}
+			</ApexChart>
+		</div>
+	}
+	else if (this.SelectedMetric is MetricHistograms metricHistograms)
+	{
+		<div style="grid-row: 2; grid-column: 2; width: 700px; height: 400px; padding: 2em;">
+			<ApexChart Options="this.HistogramChartOptions"
+					   Title="@metricHistograms.Name"
+					   @ref="this.HistogramChart">
+				@{
+					var areAllSameBounds = metricHistograms.Histograms.Select(h => h.Value.MaxBy(s => s.Key).Value.ExplicitBounds.Last()).ToArray();
+				}
+				@foreach(var histogramGroup in metricHistograms.Histograms)
+				{
+					var latestSet = histogramGroup.Value.MaxBy(s => s.Key).Value;
+					var items = latestSet.ExplicitBounds.Select((bound, index) => new HistogramItem(latestSet.BucketCounts[index], bound)).Where(i => i.Count > 0).ToArray();
+
+					<ApexPointSeries Items="items"
+									 Name="@histogramGroup.Key"
+									 XValue="i => i.Bound.ToString()"
+									 YValue="i => i.Count"
+									 SeriesType="SeriesType.Bar"  />
 				}
 			</ApexChart>
 		</div>
