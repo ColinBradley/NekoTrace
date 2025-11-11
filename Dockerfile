@@ -1,10 +1,12 @@
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-noble-chiseled-composite-extra AS base
+# https://github.com/dotnet/dotnet-docker/blob/main/README.aspnet.md#full-tag-listing
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.0-noble-chiseled-amd64 AS base
 USER $APP_UID
 WORKDIR /app
 
 # This stage is used to build the service project
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# https://github.com/dotnet/dotnet-docker/blob/main/README.sdk.md#full-tag-listing
+FROM mcr.microsoft.com/dotnet/sdk:10.0.100-noble-amd64 AS build
 ARG BUILD_CONFIGURATION=Release
 
 RUN apt-get update && \

@@ -12,5 +12,5 @@ if (Test-Path publish) {
 foreach ($publishName in @("Portable", "Linux64SelfContained", "Win64", "Win64SelfContained")) {
     dotnet publish ./NekoTrace.Web/NekoTrace.Web.csproj -p:PublishProfile=$publishName
 
-    Compress-Archive -Path "./NekoTrace.Web/bin/Release/net9.0/publish/${publishName}/*" -DestinationPath "./publish/${namePrefix}${publishName}.zip"
+    Compress-Archive -Path "./NekoTrace.Web/bin/Release/net10.0/publish/${publishName}/*" -DestinationPath "./publish/${namePrefix}${publishName}.zip"
 }

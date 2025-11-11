@@ -33,7 +33,7 @@ jobs:
           for publish_name in Portable Linux64SelfContained Win64 Win64SelfContained;
           do
             dotnet publish ./NekoTrace.Web/NekoTrace.Web.csproj -p:PublishProfile=$publish_name
-            cd ./NekoTrace.Web/bin/Release/net9.0/publish/$publish_name
+            cd ./NekoTrace.Web/bin/Release/net10.0/publish/$publish_name
             zip_name=${RELEASE_FILE_PREFIX}${publish_name}.zip
             zip -r $zip_name ./*
             mv $zip_name ../../../../../../publish/$zip_name
