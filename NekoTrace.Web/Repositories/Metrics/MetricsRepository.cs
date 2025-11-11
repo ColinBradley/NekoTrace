@@ -1,6 +1,8 @@
 ﻿namespace NekoTrace.Web.Repositories.Metrics;
 
 using NekoTrace.Web.Utilities;
+using OpenTelemetry.Proto.Collector.Metrics.V1;
+using OpenTelemetry.Proto.Metrics.V1;
 using System;
 using System.Collections.Immutable;
 
@@ -114,6 +116,61 @@ public sealed class MetricsRepository : IDisposable
                 return histograms;
             }
         );
+    }
+
+    internal ExportMetricsServiceResponse ProcessExportMetrics(ExportMetricsServiceRequest request)
+    {
+        foreach (var resourceMetric in request.ResourceMetrics)
+        {
+            var resource = this.GetResource(
+                resourceMetric.Resource.Attributes.Where(
+                    p =>
+                        p.Value.HasStringValue
+                        && !p.Key.StartsWith(
+                            "telemetry.sdk.",
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                )
+                .ToImmutableDictionary(p => p.Key, p => p.Value.StringValue)
+            );
+
+            foreach (var scopeMetrics in resourceMetric.ScopeMetrics)
+            {
+                foreach (var metric in scopeMetrics.Metrics)
+                {
+                    switch (metric.DataCase)
+                    {
+                        case Metric.DataOneofCase.None:
+                            continue;
+                        case Metric.DataOneofCase.Gauge:
+                            var guage = this.GetGauge(resource, scopeMetrics.Scope.Name, metric.Name, metric.Description);
+                            guage.Add(metric.Gauge.DataPoints);
+                            break;
+                        case Metric.DataOneofCase.Sum:
+                            var sum = this.GetSum(resource, scopeMetrics.Scope.Name, metric.Name, metric.Description);
+                            sum.Add(metric.Sum.DataPoints);
+                            break;
+                        case Metric.DataOneofCase.Histogram:
+                            var histograms = this.GetHistograms(resource, scopeMetrics.Scope.Name, metric.Name, metric.Description);
+                            histograms.Add(metric.Histogram.DataPoints);
+                            break;
+                        case Metric.DataOneofCase.ExponentialHistogram:
+                            break;
+                        case Metric.DataOneofCase.Summary:
+                            break;
+                    }
+                }
+            }
+        }
+
+        return new ExportMetricsServiceResponse()
+        {
+            PartialSuccess = new ExportMetricsPartialSuccess()
+            {
+                RejectedDataPoints = 0,
+                ErrorMessage = string.Empty,
+            },
+        };
     }
 
     public void Dispose()

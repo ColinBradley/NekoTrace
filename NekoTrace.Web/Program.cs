@@ -1,10 +1,13 @@
 using ApexCharts;
+using Google.Protobuf;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using NekoTrace.Web.Configuration;
 using NekoTrace.Web.GrpcServices;
 using NekoTrace.Web.Repositories.Metrics;
 using NekoTrace.Web.Repositories.Traces;
 using NekoTrace.Web.UI;
+using OpenTelemetry.Proto.Collector.Metrics.V1;
+using OpenTelemetry.Proto.Collector.Trace.V1;
 
 var configFilePath = Path.Combine(
     Environment.GetFolderPath(
@@ -49,11 +52,21 @@ var collectorAppTask = Task.Run(async () =>
     collectorAppBuilder.Services.AddSingleton(traces);
     collectorAppBuilder.Services.AddSingleton(metrics);
 
-    collectorAppBuilder.WebHost.ConfigureKestrel(o =>
-        o.ListenAnyIP(
-            nekoTraceConfiguration.CollectionPort,
-            c => c.Protocols = HttpProtocols.Http2
-        )
+    collectorAppBuilder.WebHost.ConfigureKestrel(
+        o =>
+        {
+            o.ListenAnyIP(
+                nekoTraceConfiguration.GrpcCollectionPort,
+                c => c.Protocols = HttpProtocols.Http2
+            );
+
+            o.ListenAnyIP(
+                nekoTraceConfiguration.HttpCollectionPort,
+                c => c.Protocols = HttpProtocols.Http1
+            );
+
+            o.AllowSynchronousIO = true;
+        }
     );
 
     var collectorApp = collectorAppBuilder.Build();
@@ -62,6 +75,124 @@ var collectorAppTask = Task.Run(async () =>
     collectorApp.MapGrpcService<MetricsServiceImplementation>();
     collectorApp.MapGrpcService<ProfilesServiceImplementation>();
     collectorApp.MapGrpcService<TraceServiceImplementation>();
+
+    collectorApp.MapPost("/v1/traces", async (HttpContext context) =>
+    {
+        ExportTraceServiceRequest exportReq;
+
+        var isProtobuf = context.Request.ContentType?.Contains("application/x-protobuf", StringComparison.OrdinalIgnoreCase) is true;
+        if (isProtobuf)
+        {
+            using var stream = new MemoryStream();
+            await context.Request.Body.CopyToAsync(stream, context.RequestAborted);
+            var bytes = stream.ToArray();
+
+            exportReq = ExportTraceServiceRequest.Parser.ParseFrom(bytes);
+        }
+        else if (context.Request.HasJsonContentType())
+        {
+            var encoding = System.Text.Encoding.UTF8;
+            try
+            {
+                var mediaType = Microsoft.Net.Http.Headers.MediaTypeHeaderValue.Parse(context.Request.ContentType);
+                var charset = mediaType.Charset.HasValue ? mediaType.Charset.Value.Trim('"') : null;
+                if (!string.IsNullOrEmpty(charset))
+                {
+                    encoding = System.Text.Encoding.GetEncoding(charset);
+                }
+            }
+#pragma warning disable CA1031 // Do not catch general exception types
+            catch
+#pragma warning restore CA1031
+            {
+                // Ignore and keep UTF-8
+            }
+
+            using var stream = new StreamReader(context.Request.Body, encoding, detectEncodingFromByteOrderMarks: true);
+            var body = await stream.ReadToEndAsync(context.Request.HttpContext.RequestAborted);
+
+            exportReq = ExportTraceServiceRequest.Parser.ParseJson(body);
+        }
+        else
+        {
+            return Results.BadRequest("Unknown contennt type");
+        }
+
+        var result = traces.ProcessExportTrace(exportReq);
+
+        if (isProtobuf)
+        {
+            using var memoryStream = new MemoryStream();
+            result.WriteTo(memoryStream);
+            return Results.Bytes(memoryStream.ToArray(), "application/x-protobuf");
+        }
+        else
+        {
+            return Results.Text(
+                Google.Protobuf.JsonFormatter.Default.Format(result),
+                "application/json"
+            );
+        }
+    });
+
+    collectorApp.MapPost("/v1/metrics", async (HttpContext context) =>
+    {
+        ExportMetricsServiceRequest exportReq;
+
+        var isProtobuf = context.Request.ContentType?.Contains("application/x-protobuf", StringComparison.OrdinalIgnoreCase) is true;
+        if (isProtobuf)
+        {
+            using var stream = new MemoryStream();
+            await context.Request.Body.CopyToAsync(stream, context.RequestAborted);
+            var bytes = stream.ToArray();
+
+            exportReq = ExportMetricsServiceRequest.Parser.ParseFrom(bytes);
+        }
+        else if (context.Request.HasJsonContentType())
+        {
+            var encoding = System.Text.Encoding.UTF8;
+            try
+            {
+                var mediaType = Microsoft.Net.Http.Headers.MediaTypeHeaderValue.Parse(context.Request.ContentType);
+                var charset = mediaType.Charset.HasValue ? mediaType.Charset.Value.Trim('"') : null;
+                if (!string.IsNullOrEmpty(charset))
+                {
+                    encoding = System.Text.Encoding.GetEncoding(charset);
+                }
+            }
+#pragma warning disable CA1031 // Do not catch general exception types
+            catch
+#pragma warning restore CA1031
+            {
+                // Ignore and keep UTF-8
+            }
+
+            using var stream = new StreamReader(context.Request.Body, encoding, detectEncodingFromByteOrderMarks: true);
+            var body = await stream.ReadToEndAsync(context.Request.HttpContext.RequestAborted);
+
+            exportReq = ExportMetricsServiceRequest.Parser.ParseJson(body);
+        }
+        else
+        {
+            return Results.BadRequest("Unknown content type");
+        }
+
+        var result = metrics.ProcessExportMetrics(exportReq);
+
+        if (isProtobuf)
+        {
+            using var memoryStream = new MemoryStream();
+            result.WriteTo(memoryStream);
+            return Results.Bytes(memoryStream.ToArray(), "application/x-protobuf");
+        }
+        else
+        {
+            return Results.Text(
+                Google.Protobuf.JsonFormatter.Default.Format(result),
+                "application/json"
+            );
+        }
+    });
 
     await collectorApp.RunAsync();
 });
