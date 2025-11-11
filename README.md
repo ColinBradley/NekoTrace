@@ -10,10 +10,10 @@
 
 Available on [Docker Hub](https://hub.docker.com/r/colinbradley/nekotrace).
 
-- Safe releases: `docker run -p 4317:4317 -p 8347:8347 -d --pull=always colinbradley/nekotrace:latest`
-- Brave releases: `docker run -p 4317:4317 -p 8347:8347 --rm --pull=always colinbradley/nekotrace:dev`
+- Safe releases: `docker run -p 4317:4317 -p 4318:4318 -p 8347:8347 -d --pull=always colinbradley/nekotrace:latest`
+- Brave releases: `docker run -p 4317:4317 -p 4318:4318 -p 8347:8347 --rm --pull=always colinbradley/nekotrace:dev`
 
-![Screenshot of app](Content/Screenshot-2025-09-14.png)
+![Screenshot of app](Content/Screenshot-2025-11-11.png)
 
 ## Notes
 
