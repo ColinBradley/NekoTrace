@@ -148,12 +148,12 @@ class TraceRenderer {
         "#00BFFF",
         "#4C4C9D",
         "#A8D676",
-        "#5917bc",
-        "#E9C46A",
+        "#5917BC",
+        "#8F7842",
         "#9B5DE5",
         "#457B9D",
-        "#D946EF",
-        "#FF6B6B"
+        "#8F2C9E",
+        "#963F3F"
     ];
 
     public setSpans(spans: SpanData[]) {
