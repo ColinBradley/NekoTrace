@@ -1,6 +1,5 @@
 ﻿namespace NekoTrace.Web.Repositories.Metrics;
 
-using Microsoft.AspNetCore.Routing;
 using OpenTelemetry.Proto.Metrics.V1;
 using System.Collections.Immutable;
 
@@ -34,5 +33,7 @@ public sealed class MetricHistograms : MetricItemBase
 
             this.Histograms = histogramsBuilder.ToImmutable();
         }
+
+        this.RaiseUpdated();
     }
 }

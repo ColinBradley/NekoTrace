@@ -15,5 +15,7 @@ public sealed class MetricDatapoints : MetricItemBase
         {
             this.DataPoints = this.DataPoints.AddRange(dataPoints);
         }
+
+        this.RaiseUpdated();
     }
 }

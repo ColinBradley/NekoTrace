@@ -9,6 +9,8 @@ using System.Linq;
 
 public partial class MetricsPage
 {
+    private MetricItemBase? mPreviouslySelectedMetric;
+
     public MetricsPage()
     {
         this.HistogramChartOptions.Theme = this.MetricChartOptions.Theme = new Theme()
@@ -96,6 +98,30 @@ public partial class MetricsPage
     private ApexChartOptions<NumberDataPoint> MetricChartOptions { get; } = new();
 
     private ApexChartOptions<HistogramItem> HistogramChartOptions { get; } = new();
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+
+        mPreviouslySelectedMetric?.Updated -= this.Refresh;
+
+        mPreviouslySelectedMetric = this.SelectedMetric;
+
+        mPreviouslySelectedMetric?.Updated += this.Refresh;
+    }
+
+    private void Refresh()
+    {
+        _ = this.InvokeAsync(
+            () =>
+            {
+                this.StateHasChanged();
+
+                this.MetricChart?.RenderAsync();
+                this.HistogramChart?.RenderAsync();
+            }
+        );
+    }
 
     private async void MetricLink_Click()
     {
