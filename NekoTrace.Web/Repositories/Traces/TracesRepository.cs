@@ -94,7 +94,7 @@ public sealed class TracesRepository : IDisposable
         this.TracesChanged?.Invoke();
     }
 
-    internal ExportTraceServiceResponse ProcessExportTrace(
+    internal ExportTraceServiceResponse ProcessTraces(
         ExportTraceServiceRequest request
     )
     {
@@ -136,8 +136,7 @@ public sealed class TracesRepository : IDisposable
 
     private void mTrimTimer_Tick(object? _)
     {
-        var nekoTraceConfig = new NekoTraceConfiguration();
-        mConfiguration.Bind("NekoTrace", nekoTraceConfig);
+        var nekoTraceConfig = NekoTraceConfiguration.Get(mConfiguration);
 
         var maxSpanAge = nekoTraceConfig.MaxSpanAge;
         if (maxSpanAge is null)

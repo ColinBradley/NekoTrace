@@ -1,5 +1,7 @@
 ﻿namespace NekoTrace.Web.Repositories.Metrics;
 
+using Microsoft.Extensions.Configuration;
+using NekoTrace.Web.Configuration;
 using NekoTrace.Web.Utilities;
 using OpenTelemetry.Proto.Collector.Metrics.V1;
 using OpenTelemetry.Proto.Metrics.V1;
@@ -8,10 +10,22 @@ using System.Collections.Immutable;
 
 public sealed class MetricsRepository : IDisposable
 {
+    private readonly IConfiguration mConfiguration;
+
     private readonly BetterReaderWriterLock mResourcesLock = new();
     private readonly BetterReaderWriterLock mSumsLock = new();
     private readonly BetterReaderWriterLock mGaugesLock = new();
     private readonly BetterReaderWriterLock mHistogramsLock = new();
+
+    private readonly Timer mTrimTimer;
+
+    public event Action? Updated;
+
+    public MetricsRepository(IConfiguration configuration)
+    {
+        mConfiguration = configuration;
+        mTrimTimer = new Timer(this.mTrimTimer_Tick, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+    }
 
     public ImmutableList<MetricResource> Resources { get; private set; } = [];
 
@@ -34,6 +48,8 @@ public sealed class MetricsRepository : IDisposable
                 };
 
                 this.Resources = this.Resources.Add(resource);
+
+                this.Updated?.Invoke();
 
                 return resource;
             }
@@ -61,6 +77,8 @@ public sealed class MetricsRepository : IDisposable
 
                 this.Sums = this.Sums.Add(sum);
 
+                this.Updated?.Invoke();
+
                 return sum;
             }
         );
@@ -86,6 +104,8 @@ public sealed class MetricsRepository : IDisposable
                 };
 
                 this.Gauges = this.Gauges.Add(gauge);
+
+                this.Updated?.Invoke();
 
                 return gauge;
             }
@@ -113,12 +133,14 @@ public sealed class MetricsRepository : IDisposable
 
                 this.Histograms = this.Histograms.Add(histograms);
 
+                this.Updated?.Invoke();
+
                 return histograms;
             }
         );
     }
 
-    internal ExportMetricsServiceResponse ProcessExportMetrics(ExportMetricsServiceRequest request)
+    internal ExportMetricsServiceResponse ProcessMetrics(ExportMetricsServiceRequest request)
     {
         foreach (var resourceMetric in request.ResourceMetrics)
         {
@@ -173,8 +195,38 @@ public sealed class MetricsRepository : IDisposable
         };
     }
 
+    private void mTrimTimer_Tick(object? _)
+    {
+        var nekoTraceConfig = NekoTraceConfiguration.Get(mConfiguration);
+
+        var maxMetricAge = nekoTraceConfig.MaxMetricAge;
+        if (maxMetricAge is null)
+        {
+            return;
+        }
+
+        var oldTimeUnixNanoSeconds = Convert.ToUInt64(DateTimeOffset.Now.Subtract(maxMetricAge.Value).ToUnixTimeMilliseconds()) * 1_000_000ul;
+
+        using (mSumsLock.Write())
+        {
+            foreach (var sum in this.Sums)
+            {
+                sum.Remove(d => d.TimeUnixNano < oldTimeUnixNanoSeconds);
+            }
+        }
+
+        using (mGaugesLock.Write())
+        {
+            foreach (var gauge in this.Gauges)
+            {
+                gauge.Remove(d => d.TimeUnixNano < oldTimeUnixNanoSeconds);
+            }
+        }
+    }
+
     public void Dispose()
     {
+        mTrimTimer.Dispose();
         mResourcesLock.Dispose();
         mSumsLock.Dispose();
         mGaugesLock.Dispose();

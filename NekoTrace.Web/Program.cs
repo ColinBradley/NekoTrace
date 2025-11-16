@@ -29,7 +29,7 @@ var nekoTraceConfiguration = new NekoTraceConfiguration();
 nekoTraceConfigurationSection.Bind(nekoTraceConfiguration);
 
 using var traces = new TracesRepository(webAppBuilder.Configuration);
-using var metrics = new MetricsRepository();
+using var metrics = new MetricsRepository(webAppBuilder.Configuration);
 
 var collectorAppTask = Task.Run(async () =>
 {
@@ -118,7 +118,7 @@ var collectorAppTask = Task.Run(async () =>
             return Results.BadRequest("Unknown contennt type");
         }
 
-        var result = traces.ProcessExportTrace(exportReq);
+        var result = traces.ProcessTraces(exportReq);
 
         if (isProtobuf)
         {
@@ -177,7 +177,7 @@ var collectorAppTask = Task.Run(async () =>
             return Results.BadRequest("Unknown content type");
         }
 
-        var result = metrics.ProcessExportMetrics(exportReq);
+        var result = metrics.ProcessMetrics(exportReq);
 
         if (isProtobuf)
         {

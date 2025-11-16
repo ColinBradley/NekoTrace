@@ -20,6 +20,6 @@ public class MetricsServiceImplementation : MetricsService.MetricsServiceBase
         ServerCallContext context
     )
     {
-        return Task.FromResult(mMetrics.ProcessExportMetrics(request));
+        return Task.FromResult(mMetrics.ProcessMetrics(request));
     }
 }

@@ -18,6 +18,6 @@ public class TraceServiceImplementation : TraceService.TraceServiceBase
         ServerCallContext context
     )
     {
-        return Task.FromResult(mTraces.ProcessExportTrace(request));
+        return Task.FromResult(mTraces.ProcessTraces(request));
     }
 }

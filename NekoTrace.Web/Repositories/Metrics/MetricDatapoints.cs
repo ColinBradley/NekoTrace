@@ -18,4 +18,22 @@ public sealed class MetricDatapoints : MetricItemBase
 
         this.RaiseUpdated();
     }
+
+    internal void Remove(Predicate<NumberDataPoint> predicate)
+    {
+        bool hasUpdated;
+        lock (mLock)
+        {
+            var originalCount = this.DataPoints.Count;
+
+            this.DataPoints = this.DataPoints.RemoveAll(predicate);
+
+            hasUpdated = originalCount != this.DataPoints.Count;
+        }
+
+        if (hasUpdated)
+        {
+            this.RaiseUpdated();
+        }
+    }
 }
