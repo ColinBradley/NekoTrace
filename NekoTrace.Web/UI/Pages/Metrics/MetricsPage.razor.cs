@@ -9,6 +9,8 @@ using System.Linq;
 
 public partial class MetricsPage
 {
+    private bool mHasPendingRender;
+
     private MetricItemBase? mPreviouslySelectedMetric;
 
     public MetricsPage()
@@ -108,6 +110,14 @@ public partial class MetricsPage
         mPreviouslySelectedMetric = this.SelectedMetric;
 
         mPreviouslySelectedMetric?.Updated += this.Refresh;
+
+        if (mHasPendingRender)
+        {
+            this.MetricChart?.RenderAsync();
+            this.HistogramChart?.RenderAsync();
+
+            mHasPendingRender = false;
+        }
     }
 
     private void Refresh()
@@ -117,6 +127,10 @@ public partial class MetricsPage
             {
                 this.StateHasChanged();
 
+                // We might still be waiting on the component to render,
+                // so flag to do this again after a render.
+                mHasPendingRender = true;
+
                 this.MetricChart?.RenderAsync();
                 this.HistogramChart?.RenderAsync();
             }
@@ -125,11 +139,7 @@ public partial class MetricsPage
 
     private async void MetricLink_Click()
     {
-        // I dislike ApexChart's need for this
-        await Task.Delay(10);
-
-        _ = this.MetricChart?.RenderAsync();
-        _ = this.HistogramChart?.RenderAsync();
+        this.Refresh();
     }
 
     private void ShowResource_Input(ChangeEventArgs e)

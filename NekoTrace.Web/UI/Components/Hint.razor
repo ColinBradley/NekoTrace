@@ -1,0 +1,17 @@
+﻿
+<hint>
+	<hint-icon style="anchor-name: @this.AnchorName">
+		❔
+	</hint-icon>
+	<hint-content style="position-anchor: @this.AnchorName;">
+		@this.ChildContent		
+	</hint-content>
+</hint>
+
+@code 
+{
+	[Parameter, EditorRequired]
+	public required RenderFragment ChildContent { get; set; }
+
+	private string AnchorName { get; } = "--trace-hint-icon-" + Guid.NewGuid().ToString("N");
+}

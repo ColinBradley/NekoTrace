@@ -24,9 +24,25 @@
 	<div class="inline-controls" style="flex-wrap: wrap; padding: .5em; grid-column: span 2;">
 
 		<label>
-			<span>
-				Attribute Filter
-			</span>
+			<div>
+				<span>
+					Attribute Filter
+				</span>
+				<Hint>
+					<p>
+						Searches all spans in all traces for the given attribute key and value pairs.
+					</p>
+					<p>
+						E.g. <code>http.status_code=500</code> to find all traces with any spans that have an HTTP status code of 500.
+					</p>
+					<p>
+						You can delemit pairs with <code>;</code> e.g. <code>http.status_code=500;user.id=42</code>.
+					</p>
+					<p>
+						There is only equality matching at this time.
+					</p>
+				</Hint>
+			</div>
 			<input value="@this.SpanAttributeFilter"
 				   @onchange="this.SpanAttributeFilter_Change" />
 		</label>
@@ -52,7 +68,7 @@
 						   list="common-span-attributes-items" />
 				</label>
 				<button type="submit"
-						disabled="@(string.IsNullOrWhiteSpace(this.NewColumnValue))">
+						disabled="@string.IsNullOrWhiteSpace(this.NewColumnValue)">
 					Add
 				</button>
 			</form>

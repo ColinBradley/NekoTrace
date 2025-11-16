@@ -1,0 +1,33 @@
+﻿hint-content {
+    display: none;
+    padding: .5em;
+    background-color: canvas;
+    position: absolute;
+    position-area: bottom;
+    position-try-fallbacks: --below-right, --below-left;
+    top: anchor(bottom);
+    z-index: 9001;
+}
+
+    hint-content ul {
+        padding-inline-start: 2ch;
+    }
+
+hint:hover > hint-content {
+    display: block;
+}
+
+/*@position-try --below {
+    justify-self: anchor-center;
+    top: anchor(bottom);
+}*/
+
+@position-try --below-right {
+    position-area: none;
+    left: anchor(left);
+}
+
+@position-try --below-left {
+    position-area: none;
+    right: anchor(right);
+}
