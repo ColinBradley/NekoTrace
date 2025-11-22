@@ -1,4 +1,4 @@
-import { type SpanData, StatusCode } from "./types.js";
+import { type SpanData, SpanKind, StatusCode } from "./types.js";
 
 export function initialize(
     targetCanvas: HTMLCanvasElement & { traceRenderer: TraceRenderer },
@@ -15,8 +15,8 @@ export function initialize(
 // It's a bit slow to fetch window.devicePixelRatio, so cache it
 let devicePixelRatioCache = window.devicePixelRatio;
 
-const FONT_SIZE = () => 14 * devicePixelRatioCache;
-const SPAN_INNER_PADDING = () => Math.round(FONT_SIZE() * 0.2);
+const FONT_SIZE = () => Math.round(14 * devicePixelRatioCache);
+const SPAN_INNER_PADDING = () => Math.round(FONT_SIZE() * 0.3);
 const SPAN_HEIGHT_INNER = () => FONT_SIZE() + (SPAN_INNER_PADDING() * 2);
 const SPAN_BORDER_WIDTH = () => 2 * devicePixelRatioCache;
 const SPAN_HEIGHT_TOTAL = () => SPAN_HEIGHT_INNER() + (SPAN_BORDER_WIDTH() * 2);
@@ -129,9 +129,11 @@ class TraceRenderer {
         }
     }
 
-    public spanErrorOverlayColor = "rgba(255, 0, 0, .8)";
+    public spanErrorOverlayColor = "rgba(255, 0, 0, .7)";
     public spanParentOverlayColor = "rgba(0, 0, 0, .3)";
     public spanActiveBorderColor = "#dd8451";
+    public spanHotBorderColor = "#FF8644";
+    public spanTransitionBorderColor = "#CCC9";
     public spanTextColor = "#FFF";
     public timeOffsetTextColor = "#FFF";
     public timeLineColor = "#FFF6";
@@ -425,6 +427,7 @@ class TraceRenderer {
             ? new Set(
                 this.spans
                     .filter(s => this.hiddenSpanNames.has(s.name) || this.hiddenSpanIds.has(s.id))
+                    .filter(s => this.hiddenSpanNames.has(s.name) || this.hiddenSpanIds.has(s.id))
                     .flatMap(s => [...getSpansDepthFirst(s)])
             )
             : undefined;
@@ -559,8 +562,46 @@ class TraceRenderer {
                 this.renderSpanBackground(span);
             }
 
+            switch (span.kind) {
+                case SpanKind.Client:
+                case SpanKind.Producer:
+                    {
+                        const left = this.getSpanLeft(span);
+                        const bottom = this.getSpanTop(span) + SPAN_HEIGHT_INNER() + SPAN_BORDER_WIDTH();
+
+                        this.canvasContext.beginPath();
+                        this.canvasContext.moveTo(left, bottom)
+                        this.canvasContext.lineTo(left + span.pixelWidth - SPAN_BORDER_WIDTH(), bottom);
+
+                        this.canvasContext.strokeStyle = this.spanTransitionBorderColor;
+                        this.canvasContext.lineWidth = SPAN_BORDER_WIDTH();
+                        this.canvasContext.stroke();
+
+                        break;
+                    }
+                case SpanKind.Server:
+                case SpanKind.Consumer:
+                    {
+                        const left = this.getSpanLeft(span);
+                        const top = this.getSpanTop(span);
+
+                        this.canvasContext.beginPath();
+                        this.canvasContext.moveTo(left, top)
+                        this.canvasContext.lineTo(left + span.pixelWidth - SPAN_BORDER_WIDTH(), top);
+
+                        this.canvasContext.strokeStyle = this.spanTransitionBorderColor;
+                        this.canvasContext.lineWidth = SPAN_BORDER_WIDTH();
+                        this.canvasContext.stroke();
+
+                        break;
+                    }
+            }
+
             if (isHot || isSelected) {
-                this.canvasContext.strokeStyle = this.spanActiveBorderColor;
+                this.canvasContext.strokeStyle =
+                    isHot
+                        ? this.spanHotBorderColor
+                        : this.spanActiveBorderColor;
 
                 this.canvasContext.lineWidth = SPAN_BORDER_WIDTH();
                 this.canvasContext.strokeRect(
@@ -661,11 +702,19 @@ class TraceRenderer {
 
     private renderSpanBackground(span: SpanItem) {
         this.canvasContext.fillRect(
-            this.left + span.absolutePixelPositionX + SPAN_BORDER_WIDTH() - 1,
-            this.top + span.absolutePixelPositionY + SPAN_BORDER_WIDTH() - 1,
+            this.getSpanLeft(span),
+            this.getSpanTop(span),
             span.pixelWidth - (SPAN_BORDER_WIDTH() * 2) + 2,
             SPAN_HEIGHT_INNER() + 2
         );
+    }
+
+    private getSpanTop(span: SpanItem): number {
+        return this.top + span.absolutePixelPositionY + SPAN_BORDER_WIDTH() - 1;
+    }
+
+    private getSpanLeft(span: SpanItem): number {
+        return this.left + span.absolutePixelPositionX + SPAN_BORDER_WIDTH() - 1;
     }
 
     private updateSpanLocations() {

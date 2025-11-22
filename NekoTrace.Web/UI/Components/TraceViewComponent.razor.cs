@@ -89,7 +89,23 @@ public partial class TraceViewComponent
         await this.TraceModule.InvokeVoidAsync(
             "initialize",
             this.TraceFlameCanvas,
-            mClientSpans ?? [],
+            // Use a slim version of spans to reduce the amount of data sent to the browser.
+            // But also because parsing JSON is "slow".
+            mClientSpans.Select(
+                s =>
+                new SpanDataSlim()
+                {
+                    Id = s.Id,
+                    ParentSpanId = s.ParentSpanId,
+                    Name = s.Name,
+                    Kind = s.Kind,
+                    Attributes = s.Attributes,
+                    StartTimeMs = s.StartTimeMs,
+                    EndTimeMs = s.EndTimeMs,
+                    StatusCode = s.StatusCode,
+                    Events = s.Events,
+                }
+            ),
             mSelfReference,
             nameof(SetSelectedSpanId)
         );

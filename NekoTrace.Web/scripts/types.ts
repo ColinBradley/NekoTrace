@@ -10,16 +10,10 @@ export interface SpanData {
     readonly name: string;
     readonly kind: SpanKind;
     readonly attributes: Record<string, string | number | boolean>;
-    readonly startTime: string;
     readonly startTimeMs: number;
-    readonly endTime: string;
     readonly endTimeMs: number;
     readonly statusCode: StatusCode;
-    readonly statusMessage?: string;
-    readonly traceState?: string;
     readonly events: SpanEvent[];
-    readonly flags: number;
-    readonly links: Record<string, string | number | boolean>[];
     readonly durationText: string;
 }
 
