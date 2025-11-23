@@ -17,8 +17,8 @@ let devicePixelRatioCache = window.devicePixelRatio;
 
 const FONT_SIZE = () => Math.round(14 * devicePixelRatioCache);
 const SPAN_INNER_PADDING = () => Math.round(FONT_SIZE() * 0.3);
-const SPAN_HEIGHT_INNER = () => FONT_SIZE() + (SPAN_INNER_PADDING() * 2);
-const SPAN_BORDER_WIDTH = () => 2 * devicePixelRatioCache;
+const SPAN_HEIGHT_INNER = () => Math.round(FONT_SIZE() + (SPAN_INNER_PADDING() * 2));
+const SPAN_BORDER_WIDTH = () => Math.round(2 * devicePixelRatioCache);
 const SPAN_HEIGHT_TOTAL = () => SPAN_HEIGHT_INNER() + (SPAN_BORDER_WIDTH() * 2);
 const SPAN_ROW_OFFSET = SPAN_HEIGHT_TOTAL;
 
@@ -115,18 +115,14 @@ class TraceRenderer {
         this.sizeClass = this.canvasElement.parentElement?.classList.contains("small") ? "small" : "large";
 
         const storedTraceViewWidth = localStorage.getItem("traceview.width." + this.sizeClass);
-        if (storedTraceViewWidth !== null) {
-            const width = Number.parseInt(storedTraceViewWidth);
-            this.canvasElement.width = width * devicePixelRatioCache;
-            this.canvasElement.style.width = width + "px";
-        }
+        const width = storedTraceViewWidth !== null ? Number.parseInt(storedTraceViewWidth) : this.canvasElement.clientWidth;
+        this.canvasElement.width = width * devicePixelRatioCache;
+        this.canvasElement.style.width = width + "px";
 
         const storedTraceViewHeight = localStorage.getItem("traceview.height." + this.sizeClass);
-        if (storedTraceViewHeight !== null) {
-            const height = Number.parseInt(storedTraceViewHeight);
-            this.canvasElement.height = height * devicePixelRatioCache;
-            this.canvasElement.style.height = height + "px";
-        }
+        const height = storedTraceViewHeight !== null ? Number.parseInt(storedTraceViewHeight) : this.canvasElement.clientHeight;
+        this.canvasElement.height = height * devicePixelRatioCache;
+        this.canvasElement.style.height = height + "px";
     }
 
     public spanErrorOverlayColor = "rgba(255, 0, 0, .7)";
