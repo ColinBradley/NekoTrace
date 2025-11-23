@@ -233,7 +233,8 @@ public sealed partial class Home : IDisposable
             .SelectMany(t =>
                 t.RootSpan == null ? Array.Empty<string>() : t.RootSpan.Attributes.Keys.ToArray()
             )
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order();
 
     protected override void OnInitialized()
     {
