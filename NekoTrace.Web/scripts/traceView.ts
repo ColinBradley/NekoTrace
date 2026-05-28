@@ -318,23 +318,30 @@ class TraceRenderer {
     private readonly canvasElement_wheel = (e: WheelEvent) => {
         e.preventDefault();
 
+        // Be a bit less speedy on trackpads (or mice with high resolution scrolling)
+        const isTrackpad = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL;
+        const scrollFactor = isTrackpad ? 0.2 : 1;
+
+        const isHorizontalScroll = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+
         if (e.altKey) {
-            // Pan
+            // Pan via vertical scrolling with shift+alt
             const deltaX = e.shiftKey ? e.deltaY : e.deltaX;
             const deltaY = e.shiftKey ? e.deltaX : e.deltaY;
 
-            this.left += Math.round(deltaX);
-            this.top -= Math.round(deltaY);
-
+            this.left -= Math.round(deltaX * scrollFactor);
+            this.top -= Math.round(deltaY * scrollFactor);
+        } else if (isHorizontalScroll) {
+            // Pan via horizontal scrolling
+            this.left -= Math.round(e.deltaX * scrollFactor);
         } else {
             // Zoom
             const scrolledContentPosition = (this.pointerX - this.left) / (this.canvasElement.width * this.zoomRatio);
 
-            if (e.deltaY > 0) {
-                this.zoomRatio /= 1.2;
-            } else if (e.deltaY < 0) {
-                this.zoomRatio *= 1.2;
-            }
+            const zoomIntensity = isTrackpad ? 0.05 : 0.2;
+            const scale = e.deltaY > 0 ? (1 - zoomIntensity) : (1 + zoomIntensity);
+
+            this.zoomRatio *= scale;
 
             this.left = this.pointerX - (scrolledContentPosition * (this.canvasElement.width * this.zoomRatio));
 
