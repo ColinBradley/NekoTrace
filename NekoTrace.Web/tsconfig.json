@@ -10,7 +10,8 @@
     "inlineSources": true,
     "target": "esnext",
     "outDir": "wwwroot/js",
-    "module": "esnext"
+    "module": "esnext",
+    "rootDir": "./scripts"
   },
   "include": [
     "scripts/**/*"
