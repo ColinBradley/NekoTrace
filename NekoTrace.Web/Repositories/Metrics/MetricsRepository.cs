@@ -165,8 +165,8 @@ public sealed class MetricsRepository : IDisposable
                         case Metric.DataOneofCase.None:
                             continue;
                         case Metric.DataOneofCase.Gauge:
-                            var guage = this.GetGauge(resource, scopeMetrics.Scope.Name, metric.Name, metric.Description);
-                            guage.Add(metric.Gauge.DataPoints);
+                            var gauge = this.GetGauge(resource, scopeMetrics.Scope.Name, metric.Name, metric.Description);
+                            gauge.Add(metric.Gauge.DataPoints);
                             break;
                         case Metric.DataOneofCase.Sum:
                             var sum = this.GetSum(resource, scopeMetrics.Scope.Name, metric.Name, metric.Description);

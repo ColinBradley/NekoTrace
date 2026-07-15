@@ -115,7 +115,7 @@ var collectorAppTask = Task.Run(async () =>
         }
         else
         {
-            return Results.BadRequest("Unknown contennt type");
+            return Results.BadRequest("Unknown content type");
         }
 
         var result = traces.ProcessTraces(exportReq);

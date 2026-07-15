@@ -2,7 +2,7 @@
 
 // Sang like "Better Metal Snake" https://youtu.be/KBHTD02dYEo?t=161.
 // I guess you have to alternate between BetterReaderLock and BetterWriterLock to make that work though.
-// Maybe I can adjust the arcitecture to make this work better...
+// Maybe I can adjust the architecture to make this work better...
 public sealed class BetterReaderWriterLock : IDisposable
 {
     internal ReaderWriterLockSlim mLock = new();
