@@ -10,6 +10,8 @@ public record NekoTraceConfiguration
 
     public string? TraceSaveDirectory { get; set; }
 
+    public TimeSpan TraceSaveInterval { get; set; } = TimeSpan.FromSeconds(5);
+
     public int GrpcCollectionPort { get; set; } = 4317;
 
     public int HttpCollectionPort { get; set; } = 4318;

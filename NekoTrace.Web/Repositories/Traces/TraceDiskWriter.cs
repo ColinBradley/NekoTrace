@@ -35,17 +35,24 @@ public sealed class TraceDiskWriter : IAsyncDisposable
                 {
                     while (!mDisposalCancellationTokenSource.IsCancellationRequested)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(3), mDisposalCancellationTokenSource.Token);
+                        await Task.Delay(
+                            NekoTraceConfiguration.Get(mConfiguration).TraceSaveInterval,
+                            mDisposalCancellationTokenSource.Token
+                        );
 
                         await this.Timer_Tick();
                     }
                 }
-                catch (Exception ex) when (
-                    ex is TaskCanceledException
-                        or OperationCanceledException
-                        or ObjectDisposedException
-                )
+                catch (Exception ex)
                 {
+                    if (ex is TaskCanceledException
+                        or OperationCanceledException
+                        or ObjectDisposedException)
+                    {
+                        return;
+                    }
+
+                    await Console.Error.WriteLineAsync(ex.ToString());
                 }
             }
         );
@@ -68,12 +75,12 @@ public sealed class TraceDiskWriter : IAsyncDisposable
             if (!Directory.Exists(saveDirectory))
             {
                 Directory.CreateDirectory(saveDirectory);
-                Console.WriteLine($"[TraceDiskWriter] Created trace save directory: {saveDirectory}");
+                await Console.Out.WriteLineAsync($"[TraceDiskWriter] Created trace save directory: {saveDirectory}");
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Console.WriteLine($"[TraceDiskWriter] Failed to create directory {saveDirectory}: {ex.Message}");
+            await Console.Error.WriteLineAsync($"[TraceDiskWriter] Failed to create directory {saveDirectory}: {ex.Message}");
             return;
         }
 
@@ -153,7 +160,7 @@ public sealed class TraceDiskWriter : IAsyncDisposable
                         // Nothing to do
                     }
 
-                    Console.WriteLine($"[TraceDiskWriter] Failed to write trace {trace.Id}. {ex.Message}");
+                    await Console.Error.WriteLineAsync($"[TraceDiskWriter] Failed to write trace {trace.Id}. {ex.Message}");
                 }
             }
         );
