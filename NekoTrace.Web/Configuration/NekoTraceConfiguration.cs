@@ -8,6 +8,8 @@ public record NekoTraceConfiguration
 
     public TimeSpan? MaxSpanAge { get; set; }
 
+    public string? TraceSaveDirectory { get; set; }
+
     public int GrpcCollectionPort { get; set; } = 4317;
 
     public int HttpCollectionPort { get; set; } = 4318;

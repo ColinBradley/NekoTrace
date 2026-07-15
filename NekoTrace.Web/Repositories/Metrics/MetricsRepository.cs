@@ -205,7 +205,13 @@ public sealed class MetricsRepository : IDisposable
             return;
         }
 
-        var oldTimeUnixNanoSeconds = Convert.ToUInt64(DateTimeOffset.Now.Subtract(maxMetricAge.Value).ToUnixTimeMilliseconds()) * 1_000_000ul;
+        var oldTimeUnixNanoSeconds =
+            Convert.ToUInt64(
+                DateTimeOffset.UtcNow
+                    .Subtract(maxMetricAge.Value)
+                    .ToUnixTimeMilliseconds()
+            )
+            * 1_000_000ul;
 
         using (mSumsLock.Write())
         {

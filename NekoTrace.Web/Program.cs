@@ -30,6 +30,7 @@ nekoTraceConfigurationSection.Bind(nekoTraceConfiguration);
 
 using var traces = new TracesRepository(webAppBuilder.Configuration);
 using var metrics = new MetricsRepository(webAppBuilder.Configuration);
+await using var traceDiskWriter = new TraceDiskWriter(traces, webAppBuilder.Configuration);
 
 var collectorAppTask = Task.Run(async () =>
 {
@@ -236,5 +237,7 @@ var webAppTask = Task.Run(async () =>
 
     await webApp.RunAsync();
 });
+
+_ = traceDiskWriter.Start();
 
 await Task.WhenAny(collectorAppTask, webAppTask);
