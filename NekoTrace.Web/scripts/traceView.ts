@@ -305,6 +305,13 @@ class TraceRenderer {
         this.pointerX = -1;
         this.pointerY = -1;
 
+        const newSelectedSpanId = this.selectedSpan?.id;
+
+        if (this.lastSentSelectedSpanId != newSelectedSpanId && this.selectionChangedCallback !== undefined) {
+            this.lastSentSelectedSpanId = newSelectedSpanId;
+            void this.selectionChangedCallback(newSelectedSpanId);
+        }
+
         this.render();
     };
 
