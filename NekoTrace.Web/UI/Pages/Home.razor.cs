@@ -11,24 +11,8 @@ public sealed partial class Home : IDisposable
 {
     private static readonly string sAssemblyVersion = "v" + (System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "Unknown");
 
-    private ImmutableHashSet<string> mIgnoredTraceNamesSet = [];
-    private string? mIgnoredTraceNamesRaw;
-
-    private ImmutableHashSet<string> mExclusiveTraceNamesSet = [];
-    private string? mExclusiveTraceNamesRaw;
-
-    private ImmutableDictionary<string, string> mSpanAttributeFilter = ImmutableDictionary<
-        string,
-        string
-    >.Empty;
-
-    private string? mSpanAttributeFilterRaw;
-
-    private DateTimeOffset? mStartTime;
-    private string? mStartTimeRaw;
-
-    private DateTimeOffset? mEndTime;
-    private string? mEndTimeRaw;
+    private TraceFilter mCurrentFilter = TraceFilter.Empty;
+    private string? mCurrentFilterCacheKey;
 
     private bool mHasPendingRefresh;
 
@@ -85,112 +69,52 @@ public sealed partial class Home : IDisposable
     private string TracesGridStyle =>
         $"grid-template-columns: min-content minmax(15ch, 1fr) min-content min-content min-content {string.Join(' ', this.EffectiveCustomColumns.Select(_ => "min-content"))};";
 
-    private ImmutableHashSet<string> IgnoredTraceNamesSet
+    private TraceFilter CurrentFilter
     {
         get
         {
-            if (
-                !string.Equals(
-                    this.IgnoredTraceNames,
-                    mIgnoredTraceNamesRaw,
-                    StringComparison.Ordinal
-                )
-            )
+            // Build a cache key from all filter parameters
+            var cacheKey = $"{SpansMinimum}|{DurationMinimum}|{DurationMaximum}|{HasError}|{IgnoredTraceNames}|{ExclusiveTraceNames}|{SpanAttributeFilter}|{StartTime}|{EndTime}";
+
+            if (!string.Equals(cacheKey, mCurrentFilterCacheKey, StringComparison.Ordinal))
             {
-                mIgnoredTraceNamesSet = [.. this.IgnoredTraceNames?.Split('|') ?? []];
-                mIgnoredTraceNamesRaw = this.IgnoredTraceNames;
+                mCurrentFilter = new TraceFilter
+                {
+                    SpansMinimum = this.SpansMinimum,
+                    DurationMinimum = this.DurationMinimum,
+                    DurationMaximum = this.DurationMaximum,
+                    HasError = this.HasError,
+                    IgnoredTraceNames = string.IsNullOrEmpty(this.IgnoredTraceNames)
+                        ? ImmutableHashSet<string>.Empty
+                        : this.IgnoredTraceNames.Split('|', StringSplitOptions.RemoveEmptyEntries)
+                            .ToImmutableHashSet(StringComparer.Ordinal),
+                    ExclusiveTraceNames = string.IsNullOrEmpty(this.ExclusiveTraceNames)
+                        ? null
+                        : this.ExclusiveTraceNames.Split('|', StringSplitOptions.RemoveEmptyEntries)
+                            .ToImmutableHashSet(StringComparer.Ordinal),
+                    SpanAttributeFilter = string.IsNullOrEmpty(this.SpanAttributeFilter)
+                        ? ImmutableDictionary<string, string>.Empty
+                        : this.SpanAttributeFilter.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(pair => pair.Split('=', 2))
+                            .Where(parts => parts.Length == 2)
+                            .Select(parts => new KeyValuePair<string, string>(parts[0].Trim(), parts[1].Trim()))
+                            .Where(kvp => !string.IsNullOrEmpty(kvp.Key))
+                            .DistinctBy(kvp => kvp.Key, StringComparer.Ordinal)
+                            .ToImmutableDictionary(StringComparer.Ordinal),
+                    StartTime = DateTimeOffset.TryParse(this.StartTime, out var startTime) ? startTime : null,
+                    EndTime = DateTimeOffset.TryParse(this.EndTime, out var endTime) ? endTime : null,
+                };
+
+                mCurrentFilterCacheKey = cacheKey;
             }
 
-            return mIgnoredTraceNamesSet;
+            return mCurrentFilter;
         }
     }
 
-    private ImmutableDictionary<string, string> ParsedSpanAttributesFilter
-    {
-        get
-        {
-            if (
-                !string.Equals(
-                    this.SpanAttributeFilter,
-                    mSpanAttributeFilterRaw,
-                    StringComparison.Ordinal
-                )
-            )
-            {
-                mSpanAttributeFilter = ImmutableDictionary<string, string>.Empty.AddRange(
-                    this.SpanAttributeFilter?.Split(';')
-                        .Select<string, KeyValuePair<string, string>?>(f =>
-                            f.Split('=') switch
-                            {
-                                [string k, string v] => new KeyValuePair<string, string>(
-                                    k.Trim(),
-                                    v.Trim()
-                                ),
-                                _ => null,
-                            }
-                        )
-                        .Where(p => p is not null)
-                        .Select(p => p!.Value)
-                        .DistinctBy(p => p.Key)
-                        ?? []
-                );
+    private ImmutableHashSet<string> IgnoredTraceNamesSet => this.CurrentFilter.IgnoredTraceNames;
 
-                mSpanAttributeFilterRaw = this.SpanAttributeFilter;
-            }
-
-            return mSpanAttributeFilter;
-        }
-    }
-
-    private ImmutableHashSet<string> ExclusiveTraceNamesSet
-    {
-        get
-        {
-            if (
-                !string.Equals(
-                    this.ExclusiveTraceNames,
-                    mExclusiveTraceNamesRaw,
-                    StringComparison.Ordinal
-                )
-            )
-            {
-                mExclusiveTraceNamesSet = [.. this.ExclusiveTraceNames?.Split('|') ?? []];
-                mExclusiveTraceNamesRaw = this.ExclusiveTraceNames;
-            }
-
-            return mExclusiveTraceNamesSet;
-        }
-    }
-
-    private DateTimeOffset? EffectiveStartTime
-    {
-        get
-        {
-            if (!string.Equals(this.StartTime, mStartTimeRaw, StringComparison.OrdinalIgnoreCase))
-            {
-                mStartTime = DateTimeOffset.TryParse(this.StartTime, out var result)
-                    ? result
-                    : null;
-                mStartTimeRaw = this.StartTime;
-            }
-
-            return mStartTime;
-        }
-    }
-
-    private DateTimeOffset? EffectiveEndTime
-    {
-        get
-        {
-            if (!string.Equals(this.EndTime, mEndTimeRaw, StringComparison.OrdinalIgnoreCase))
-            {
-                mEndTime = DateTimeOffset.TryParse(this.EndTime, out var result) ? result : null;
-                mEndTimeRaw = this.EndTime;
-            }
-
-            return mEndTime;
-        }
-    }
+    private ImmutableHashSet<string> ExclusiveTraceNamesSet => this.CurrentFilter.ExclusiveTraceNames ?? ImmutableHashSet<string>.Empty;
 
     private GridSort<TraceItem> TraceStartGridSort { get; } =
         GridSort<TraceItem>.ByAscending(t => t.Start);
@@ -208,25 +132,7 @@ public sealed partial class Home : IDisposable
             .OrderBy(g => g.Key);
 
     private IQueryable<TraceItem> FilteredTraces =>
-        this.TracesRepo.Traces
-            .Where(t => (this.SpansMinimum ?? 0) <= t.Spans.Count)
-            .Where(t => (this.DurationMinimum ?? 0) <= t.Duration.TotalSeconds)
-            .Where(t => (this.DurationMaximum ?? double.MaxValue) >= t.Duration.TotalSeconds)
-            .Where(t => this.HasError == null || t.HasError == this.HasError)
-            .Where(t => this.EffectiveStartTime == null || this.EffectiveStartTime < t.Start)
-            .Where(t => this.EffectiveEndTime == null || this.EffectiveEndTime > t.Start)
-            .Where(t =>
-                t.RootSpan == null
-                || this.IgnoredTraceNames == null
-                || !this.IgnoredTraceNames.Contains(t.RootSpan!.Name)
-            )
-            .Where(t =>
-                this.ExclusiveTraceNames == null
-                || (t.RootSpan != null
-                    && this.ExclusiveTraceNamesSet.Contains(t.RootSpan.Name)
-                )
-            )
-            .Where(t => this.TracePassesFilter(t));
+        this.TracesRepo.Traces.Where(t => this.CurrentFilter.Matches(t));
 
     private IEnumerable<string> RootSpanAttributeKeys =>
         this.TracesRepo.Traces
@@ -402,26 +308,6 @@ public sealed partial class Home : IDisposable
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(nameof(this.CustomColumns), newValue),
             replace: true
-        );
-    }
-
-    private bool TracePassesFilter(TraceItem trace)
-    {
-        var parsedSpanAttributesFilter = this.ParsedSpanAttributesFilter;
-        if (parsedSpanAttributesFilter.Count is 0)
-        {
-            return true;
-        }
-
-        return trace.Spans.Any(s =>
-            parsedSpanAttributesFilter.Any(filterPair =>
-                s.Attributes.TryGetValue(filterPair.Key, out var spanAttributeValue)
-                && string.Equals(
-                    filterPair.Value,
-                    spanAttributeValue?.ToString(),
-                    StringComparison.OrdinalIgnoreCase
-                )
-            )
         );
     }
 

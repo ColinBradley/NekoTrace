@@ -20,6 +20,9 @@ public sealed class TraceDiskWriter : IAsyncDisposable
     private CancellationTokenSource mDisposalCancellationTokenSource = new();
     private bool mIsDisposed;
 
+    private string? mLastTraceSaveFilterRaw;
+    private TraceFilter mParsedTraceSaveFilter = TraceFilter.Empty;
+
     public TraceDiskWriter(TracesRepository tracesRepository, IConfiguration configuration)
     {
         mTracesRepository = tracesRepository;
@@ -70,6 +73,20 @@ public sealed class TraceDiskWriter : IAsyncDisposable
             return;
         }
 
+        // Parse TraceSaveFilter if changed
+        if (!string.Equals(config.TraceSaveFilter, mLastTraceSaveFilterRaw, StringComparison.Ordinal))
+        {
+            mParsedTraceSaveFilter = TraceFilter.Parse(config.TraceSaveFilter);
+            mLastTraceSaveFilterRaw = config.TraceSaveFilter;
+        }
+
+        var filter = mParsedTraceSaveFilter;
+
+        if (string.IsNullOrWhiteSpace(saveDirectory))
+        {
+            return;
+        }
+
         try
         {
             if (!Directory.Exists(saveDirectory))
@@ -101,6 +118,30 @@ public sealed class TraceDiskWriter : IAsyncDisposable
                             Trace = trace,
                         }
                     );
+
+                // If the trace is definitively rejected and we have a file, delete it
+                if (filter.IsRejected(trace) && state.Filename is not null)
+                {
+                    var rejectedFilePath = Path.Combine(saveDirectory, state.Filename);
+                    try
+                    {
+                        File.Delete(rejectedFilePath);
+                        await Console.Out.WriteLineAsync($"[TraceDiskWriter] Deleted rejected trace file: {state.Filename}");
+                    }
+                    catch
+                    {
+                        // Best effort
+                    }
+
+                    mTrackedTraces.TryRemove(new KeyValuePair<string, TraceWriteState>(trace.Id, state));
+                    return;
+                }
+
+                // If the trace doesn't match the filter, skip writing
+                if (!filter.Matches(trace))
+                {
+                    return;
+                }
 
                 if (state.LastWrittenSpanCount == trace.Spans.Count)
                 {

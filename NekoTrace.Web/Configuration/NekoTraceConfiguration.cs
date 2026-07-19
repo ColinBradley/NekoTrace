@@ -18,6 +18,10 @@ public record NekoTraceConfiguration
 
     public int WebApplicationPort { get; set; } = 8347;
 
+    public string? TraceSaveFilter { get; set; }
+
+    public string? TraceIngestFilter { get; set; }
+
     internal static NekoTraceConfiguration Get(IConfiguration config) =>
         config.GetSection(CONFIGIRATION_SECTION_PATH).Get<NekoTraceConfiguration>()
             ?? new NekoTraceConfiguration();

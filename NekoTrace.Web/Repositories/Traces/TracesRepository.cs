@@ -20,6 +20,9 @@ public sealed class TracesRepository : IDisposable
     private readonly Dictionary<string, TraceItem> mTracesById = [];
     private readonly ConcurrentDictionary<string, SpanRepository> mSpansByName = [];
 
+    private string? mLastTraceIngestFilterRaw;
+    private TraceFilter mParsedTraceIngestFilter = TraceFilter.Empty;
+
     public TracesRepository(ConfigurationManager configuration)
     {
         mConfiguration = configuration;
@@ -98,6 +101,8 @@ public sealed class TracesRepository : IDisposable
         ExportTraceServiceRequest request
     )
     {
+        var touchedTraces = new HashSet<TraceItem>(ReferenceEqualityComparer.Instance);
+
         foreach (var resourceSpan in request.ResourceSpans)
         {
             var resourceAttributes =
@@ -118,9 +123,27 @@ public sealed class TracesRepository : IDisposable
 
                 foreach (var span in scopeSpan.Spans)
                 {
-                    this.GetOrAddTrace(span.TraceId)
-                        .AddSpan(ConvertSpan(span, [.. resourceAttributes, .. scopeAttributes]));
+                    var trace = this.GetOrAddTrace(span.TraceId);
+                    trace.AddSpan(ConvertSpan(span, [.. resourceAttributes, .. scopeAttributes]));
+                    touchedTraces.Add(trace);
                 }
+            }
+        }
+
+        // Apply ingest filter to touched traces
+        var config = NekoTraceConfiguration.Get(mConfiguration);
+        if (!string.Equals(config.TraceIngestFilter, mLastTraceIngestFilterRaw, StringComparison.Ordinal))
+        {
+            mParsedTraceIngestFilter = TraceFilter.Parse(config.TraceIngestFilter);
+            mLastTraceIngestFilterRaw = config.TraceIngestFilter;
+        }
+
+        var filter = mParsedTraceIngestFilter;
+        foreach (var trace in touchedTraces)
+        {
+            if (filter.IsRejected(trace))
+            {
+                this.RemoveTrace(trace);
             }
         }
 
@@ -139,17 +162,21 @@ public sealed class TracesRepository : IDisposable
         var nekoTraceConfig = NekoTraceConfiguration.Get(mConfiguration);
 
         var maxSpanAge = nekoTraceConfig.MaxSpanAge;
-        if (maxSpanAge is null)
+
+        // Parse ingest filter
+        if (!string.Equals(nekoTraceConfig.TraceIngestFilter, mLastTraceIngestFilterRaw, StringComparison.Ordinal))
         {
-            return;
+            mParsedTraceIngestFilter = TraceFilter.Parse(nekoTraceConfig.TraceIngestFilter);
+            mLastTraceIngestFilterRaw = nekoTraceConfig.TraceIngestFilter;
         }
 
-        var oldTime = DateTimeOffset.Now.Subtract(maxSpanAge.Value);
+        var filter = mParsedTraceIngestFilter;
 
         using (mTracesLock.Write())
         {
             var tracesToRemove = mTracesById.Values
-                .Where(t => t.Start < oldTime)
+                .Where(t => (maxSpanAge is not null && t.Start < DateTimeOffset.Now.Subtract(maxSpanAge.Value))
+                            || filter.IsRejected(t))
                 .ToArray();
 
             if (tracesToRemove.Length is 0)
