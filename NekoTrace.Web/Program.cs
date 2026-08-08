@@ -6,6 +6,7 @@ using NekoTrace.Web.GrpcServices;
 using NekoTrace.Web.Repositories.Metrics;
 using NekoTrace.Web.Repositories.Traces;
 using NekoTrace.Web.UI;
+using NekoTrace.Web.Utilities;
 using OpenTelemetry.Proto.Collector.Metrics.V1;
 using OpenTelemetry.Proto.Collector.Trace.V1;
 
@@ -112,7 +113,9 @@ var collectorAppTask = Task.Run(async () =>
             using var stream = new StreamReader(context.Request.Body, encoding, detectEncodingFromByteOrderMarks: true);
             var body = await stream.ReadToEndAsync(context.Request.HttpContext.RequestAborted);
 
-            exportReq = ExportTraceServiceRequest.Parser.ParseJson(body);
+            exportReq = ExportTraceServiceRequest.Parser.ParseJson(
+                OtlpJsonIdNormalizer.NormalizeIds(body)
+            );
         }
         else
         {
@@ -171,7 +174,9 @@ var collectorAppTask = Task.Run(async () =>
             using var stream = new StreamReader(context.Request.Body, encoding, detectEncodingFromByteOrderMarks: true);
             var body = await stream.ReadToEndAsync(context.Request.HttpContext.RequestAborted);
 
-            exportReq = ExportMetricsServiceRequest.Parser.ParseJson(body);
+            exportReq = ExportMetricsServiceRequest.Parser.ParseJson(
+                OtlpJsonIdNormalizer.NormalizeIds(body)
+            );
         }
         else
         {
