@@ -41,7 +41,12 @@ public sealed class TraceFilesController : ControllerBase
 
         await JsonSerializer.SerializeAsync(
             compressionStream,
-            new TraceSerializableData() { Id = trace.Id, Spans = [.. trace.Spans] },
+            new TraceSerializableData()
+            {
+                Version = TraceSerializableData.CURRENT_VERSION,
+                Id = trace.Id,
+                Spans = [.. trace.Spans],
+            },
             cancellationToken: cancellationToken
         );
     }
@@ -83,9 +88,19 @@ public sealed class TraceFilesController : ControllerBase
                 continue;
             }
 
-            // Files downloaded before NekoTrace moved to hex ids carry base64 throughout, so every id in the
-            // file is normalised, not just the trace's own. Converting only the trace id would leave the spans
-            // pointing at a trace key that no longer matches.
+            if (uploadedTrace.Version > TraceSerializableData.CURRENT_VERSION)
+            {
+                return this.BadRequest(
+                    FormattableString.Invariant(
+                        $"'{file.FileName}' uses trace file format version {uploadedTrace.Version}, but this build of NekoTrace only understands up to {TraceSerializableData.CURRENT_VERSION}."
+                    )
+                );
+            }
+
+            // LEGACY_VERSION files carry base64 ids throughout, so every id in the file is normalised, not just
+            // the trace's own — converting only the trace id would leave the spans pointing at a key that no
+            // longer matches. Run unconditionally rather than gated on the version: it is idempotent for ids
+            // that are already hex, so it also repairs a hand-edited or mislabelled file.
             var trace = mTraces.GetOrAddTrace(
                 TraceIds.NormalizeToHex(uploadedTrace.Id, TraceIds.TRACE_ID_BYTE_LENGTH)
             );

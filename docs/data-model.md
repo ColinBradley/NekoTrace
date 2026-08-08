@@ -34,4 +34,6 @@ Optional and off unless `TraceSaveDirectory` is set.
 
 `Controllers/TraceFilesController.cs` serves the same format: `GET /api/trace-files?traceId=…` downloads one trace, `POST` accepts uploads back in and replays the spans through `GetOrAddTrace`/`AddSpans`.
 
+`TraceSerializableData.Version` records the format: `CURRENT_VERSION` is hex ids, and an absent property means `LEGACY_VERSION` (base64, from before the field existed). Both writers — `TraceDiskWriter` and the controller's download — must stamp it, and upload rejects anything newer than it understands with a 400. Bump the constant whenever the shape changes; the version exists for schema drift, not for encoding, which is detected by length.
+
 Upload is the **only** place base64 ids are still accepted: files downloaded before the move to hex carry base64 throughout, so `TraceIds.NormalizeToHex` rewrites every id in the file — the trace's own plus each span's `Id`, `TraceId` and `ParentSpanId`. Converting only the trace id would leave spans pointing at a key that no longer matches. The two encodings are told apart by length (a 16 byte id is 32 hex characters but 24 base64 ones), and anything matching neither is passed through untouched so an odd file still loads as a self-consistent opaque key. Don't add base64 handling anywhere else.

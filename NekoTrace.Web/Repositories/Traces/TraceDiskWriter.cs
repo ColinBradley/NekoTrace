@@ -174,6 +174,7 @@ public sealed class TraceDiskWriter : IAsyncDisposable
                 {
                     var data = new TraceSerializableData()
                     {
+                        Version = TraceSerializableData.CURRENT_VERSION,
                         Id = trace.Id,
                         Spans = [.. trace.Spans]
                     };
