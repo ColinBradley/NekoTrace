@@ -63,7 +63,10 @@ public sealed class TraceDiskWriter : IAsyncDisposable
         return mLoopTask;
     }
 
-    private async ValueTask Timer_Tick()
+    // Internal rather than private so tests can drive a tick directly. Ticks build on each other through
+    // mTrackedTraces — a rename only happens on the tick after the one that first wrote the file — and
+    // DisposeAsync only ever runs one, so waiting on the loop can't exercise that.
+    internal async ValueTask Timer_Tick()
     {
         var config = NekoTraceConfiguration.Get(mConfiguration);
         var saveDirectory = config.TraceSaveDirectory;

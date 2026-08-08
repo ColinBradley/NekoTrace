@@ -2,5 +2,6 @@
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
   </Folder>
+  <Project Path="NekoTrace.Tests/NekoTrace.Tests.csproj" />
   <Project Path="NekoTrace.Web/NekoTrace.Web.csproj" />
 </Solution>

@@ -12,7 +12,11 @@ dotnet run --project NekoTrace.Web/NekoTrace.Web.csproj
 
 Running serves the UI on <http://localhost:8347> and listens for OTLP on 4317 (gRPC) / 4318 (HTTP).
 
-There is no test project — verification is `dotnet build` (warnings are meaningful, see below) plus running the app and pushing telemetry at it.
+```powershell
+dotnet test NekoTrace.slnx
+```
+
+Verification is `dotnet build` (warnings are meaningful, see below) plus `dotnet test`. Neither covers the Blazor UI or the gRPC services, so a change to either still wants the app run and telemetry pushed at it.
 
 `TestTraces/` is gitignored, so it is often absent — but when sample traces exist locally, that is where they are: downloaded `.json.gz` trace files, useful for exercising the upload path (`POST /api/trace-files`) against real data rather than synthesised spans. Files saved by older builds can carry base64 ids instead of hex, which makes them worth keeping around.
 
@@ -20,11 +24,11 @@ TypeScript under `NekoTrace.Web/scripts/` is compiled as part of `dotnet build`;
 
 ## Architecture
 
-Single project, `NekoTrace.Web`. It is an in-memory OpenTelemetry collector plus a Blazor Server UI for browsing what it collected. No database, no external dependencies.
+Two projects: `NekoTrace.Web`, and `NekoTrace.Tests` covering it. The app itself is an in-memory OpenTelemetry collector plus a Blazor Server UI for browsing what it collected. No database, no external dependencies.
 
 **Two web hosts, one process.** `Program.cs` builds *two* independent `WebApplication`s on separate `Task`s:
 
-- the **collector app** — gRPC services (`GrpcServices/`) on port 4317 and minimal-API OTLP/HTTP endpoints (`/v1/traces`, `/v1/metrics`) on 4318, accepting both protobuf and JSON bodies;
+- the **collector app** — gRPC services (`GrpcServices/`) on port 4317 and the OTLP/HTTP endpoints of `Endpoints/OtlpHttpEndpoints.cs` (`/v1/traces`, `/v1/metrics`) on 4318, accepting both protobuf and JSON bodies;
 - the **web app** — Blazor Server UI + `Controllers/` on port 8347.
 
 `TracesRepository` and `MetricsRepository` are shared between both.
@@ -60,3 +64,4 @@ Read these only when working in the area they cover.
 | [docs/configuration.md](docs/configuration.md) | Adding a config option, or changing how config is read. |
 | [docs/trace-viewer.md](docs/trace-viewer.md) | Working on the flame graph canvas, `scripts/*.ts`, or the .NET↔JS interop. |
 | [docs/build-and-release.md](docs/build-and-release.md) | Cutting a release, changing publish/Docker/CI, or touching `Protos/`. |
+| [docs/testing.md](docs/testing.md) | Adding or changing tests, or wondering why something isn't covered. |
