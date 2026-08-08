@@ -65,6 +65,15 @@ public sealed record TraceItem : IDisposable
 
     private void AddSpanCore(SpanData span)
     {
+        // The same span id can arrive more than once — an exporter retrying a batch, or the same trace file
+        // uploaded twice. A span is immutable once exported, so the repeat carries nothing new and the copy we
+        // already hold wins. Without this the ordered list grows a second entry that SpansById, being keyed,
+        // cannot see, leaving the two indexes disagreeing about how many spans the trace has.
+        if (this.SpansById.ContainsKey(span.Id))
+        {
+            return;
+        }
+
         var insertIndex = this.Spans.FindLastIndex(s => s.StartTime < span.StartTime);
 
         this.Spans = insertIndex >= 0 ? this.Spans.Insert(insertIndex, span) : this.Spans.Add(span);
