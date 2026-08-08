@@ -102,17 +102,19 @@
 			<dl class="span-info">
 				<dt>Name</dt>
 				<dd class="name">
-					<a href="@($"/spans/{Uri.EscapeDataString(this.SelectedSpan.Name)}")">
-						@this.SelectedSpan.Name
-					</a>
+					<CopyableValue Value="@this.SelectedSpan.Name">
+						<a href="@($"/spans/{Uri.EscapeDataString(this.SelectedSpan.Name)}")">
+							@this.SelectedSpan.Name
+						</a>
+					</CopyableValue>
 				</dd>
 				<dt>Start</dt>
 				<dd class="duration">
-					@(this.SelectedSpan.StartTime - trace.Start)
+					<CopyableValue Value="@(this.SelectedSpan.StartTime - trace.Start)" />
 				</dd>
 				<dt>Duration</dt>
 				<dd class="duration">
-					@(this.SelectedSpan.DurationText)
+					<CopyableValue Value="@(this.SelectedSpan.DurationText)" />
 				</dd>
 				<dt>Performance</dt>
 				<dd class="performance">
@@ -121,24 +123,24 @@
 						? "p" + ((this.SelectedSpan.Duration.TotalMilliseconds / spanRepository.MaxDuration.TotalMilliseconds) * 100).ToString("G3")
 						: null;
 					}
-					@performance
+					<CopyableValue Value="@performance" />
 				</dd>
 				<dt>Kind</dt>
 				<dd class="kind">
-					@this.SelectedSpan.Kind
+					<CopyableValue Value="@this.SelectedSpan.Kind" />
 				</dd>
 				<dt>Parent</dt>
 				<dd class="parent">
 					@if (trace.SpansById.TryGetValue(this.SelectedSpan.ParentSpanId ?? string.Empty, out var parentSpan))
 					{
-						@parentSpan.Name
+						<CopyableValue Value="@parentSpan.Name" />
 					}
 				</dd>
 				@if (!string.IsNullOrEmpty(this.SelectedSpan.StatusMessage))
 				{
 					<dt>Message</dt>
 					<dd class="status-message">
-						@this.SelectedSpan.StatusMessage
+						<CopyableValue Value="@this.SelectedSpan.StatusMessage" />
 					</dd>
 				}
 				@foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key))
@@ -147,7 +149,7 @@
 						@spanAttribute.Key
 					</dt>
 					<dd class="value">
-						@spanAttribute.Value
+						<CopyableValue Value="@spanAttribute.Value" />
 					</dd>
 				}
 			</dl>
@@ -163,11 +165,11 @@
 						<dl class="event span-info">
 							<dt>Name</dt>
 							<dd class="name">
-								@spanEvent.Name
+								<CopyableValue Value="@spanEvent.Name" />
 							</dd>
 							<dt>Time</dt>
 							<dd class="time">
-								@spanEvent.Time
+								<CopyableValue Value="@spanEvent.Time" />
 							</dd>
 							@foreach (var eventAttribute in spanEvent.Attributes)
 							{
@@ -175,7 +177,7 @@
 									@eventAttribute.Key
 								</dt>
 								<dd class="value">
-									@eventAttribute.Value
+									<CopyableValue Value="@eventAttribute.Value" />
 								</dd>
 							}
 						</dl>

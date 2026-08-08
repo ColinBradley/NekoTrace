@@ -1,0 +1,38 @@
+
+<span class="text">
+	@if (this.ChildContent is null)
+	{
+		@this.Value
+	}
+	else
+	{
+		@this.ChildContent
+	}
+</span>
+
+@if (this.CopyText.Length > 0)
+{
+	<button type="button"
+			class="copy-button"
+			title="Copy"
+			data-copy-value="@this.CopyText">
+		<svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<rect x="9" y="9" width="12" height="12" rx="2" />
+			<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+		</svg>
+		<svg class="copied-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<path d="M4 12.5 9 18 20 6" />
+		</svg>
+	</button>
+}
+
+@code
+{
+	[Parameter, EditorRequired]
+	public required object? Value { get; set; }
+
+	[Parameter]
+	public RenderFragment? ChildContent { get; set; }
+
+	private string CopyText => this.Value?.ToString() ?? string.Empty;
+}

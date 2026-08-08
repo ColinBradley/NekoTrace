@@ -14,6 +14,26 @@
 	gap: .5em;
 }
 
+.span-info dd {
+	/* The value does its own ellipsing, otherwise text-overflow stops the copy button being painted */
+	text-overflow: clip;
+}
+
+	.span-info dd:hover ::deep .text {
+		max-width: none;
+		overflow: visible;
+	}
+
+	.span-info dd ::deep .copy-button {
+		opacity: 0;
+	}
+
+	.span-info dt:hover + dd ::deep .copy-button,
+	.span-info dd:hover ::deep .copy-button,
+	.span-info dd ::deep .copy-button:focus-visible {
+		opacity: 1;
+	}
+
 canvas {
 	background-color: #181818;
 }
