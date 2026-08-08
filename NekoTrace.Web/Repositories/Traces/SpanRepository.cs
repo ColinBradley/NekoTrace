@@ -35,11 +35,14 @@ public sealed class SpanRepository : IDisposable
                 if (mAverageDuration is null)
 #pragma warning restore CA1508
                 {
-                    var average =
-                        this.Spans.Sum(s => s.Duration.TotalMilliseconds)
-                        / this.Spans.Count;
-
-                    mAverageDuration = TimeSpan.FromMilliseconds(average);
+                    // A repository is normally dropped the moment it empties, but it can be read in the
+                    // window before that — and dividing by zero here gives NaN, which FromMilliseconds throws on.
+                    mAverageDuration = this.Spans.Count is 0
+                        ? TimeSpan.Zero
+                        : TimeSpan.FromMilliseconds(
+                            this.Spans.Sum(s => s.Duration.TotalMilliseconds)
+                            / this.Spans.Count
+                        );
                 }
             }
 
@@ -52,6 +55,9 @@ public sealed class SpanRepository : IDisposable
         using var writeLock = mLock.Write();
 
         this.Spans = this.Spans.Add(span);
+
+        // The cached average is only valid for the set of spans it was computed over.
+        mAverageDuration = null;
 
         if (this.Name is "")
             this.Name = span.Name;
@@ -72,6 +78,8 @@ public sealed class SpanRepository : IDisposable
         using var writeLock = mLock.Write();
 
         this.Spans = this.Spans.Remove(span);
+
+        mAverageDuration = null;
 
         if (span.StatusCode is StatusCode.Error)
             this.ErrorSpans = this.ErrorSpans.Remove(span);

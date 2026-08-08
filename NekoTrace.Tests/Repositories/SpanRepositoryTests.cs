@@ -70,6 +70,56 @@ public sealed class SpanRepositoryTests
     }
 
     [Fact]
+    public void AverageDuration_MovesWhenASpanIsAdded()
+    {
+        // The average is cached on first read; it used to be cached forever, so whatever the first reader
+        // saw is what the by-span-type view kept showing however many spans arrived afterwards.
+        using var repository = new SpanRepository();
+
+        repository.AddSpan(Fake.Span(id: "0000000000000001", durationMs: 10));
+
+        Assert.Equal(TimeSpan.FromMilliseconds(10), repository.AverageDuration);
+
+        repository.AddSpan(Fake.Span(id: "0000000000000002", durationMs: 30));
+
+        Assert.Equal(TimeSpan.FromMilliseconds(20), repository.AverageDuration);
+    }
+
+    [Fact]
+    public void AverageDuration_MovesWhenASpanIsRemoved()
+    {
+        using var repository = new SpanRepository();
+
+        var slow = Fake.Span(id: "0000000000000001", durationMs: 30);
+
+        repository.AddSpan(slow);
+        repository.AddSpan(Fake.Span(id: "0000000000000002", durationMs: 10));
+
+        Assert.Equal(TimeSpan.FromMilliseconds(20), repository.AverageDuration);
+
+        repository.RemoveSpan(slow);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(10), repository.AverageDuration);
+    }
+
+    [Fact]
+    public void AverageDuration_IsZeroWhileTheRepositoryIsEmpty()
+    {
+        // A repository is dropped the moment it empties, but it can be read in the window before that —
+        // and the mean of nothing is NaN, which TimeSpan.FromMilliseconds throws on.
+        using var repository = new SpanRepository();
+
+        Assert.Equal(TimeSpan.Zero, repository.AverageDuration);
+
+        var only = Fake.Span(durationMs: 10);
+
+        repository.AddSpan(only);
+        repository.RemoveSpan(only);
+
+        Assert.Equal(TimeSpan.Zero, repository.AverageDuration);
+    }
+
+    [Fact]
     public void RemoveSpan_RecomputesTheExtremes()
     {
         using var repository = new SpanRepository();

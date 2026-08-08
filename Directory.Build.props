@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      Warnings are the enforcement mechanism for the whole .editorconfig, so a build that merely mentions
+      them is a build nobody reads. Individual rules are turned down in .editorconfig rather than here, and
+      a rule that genuinely doesn't apply somewhere gets a narrow #pragma with the rule name in the comment.
+      WarningsNotAsErrors is the escape hatch if an SDK or analyzer upgrade lands a new one mid-flight.
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisMode>All</AnalysisMode>
+  </PropertyGroup>
+</Project>

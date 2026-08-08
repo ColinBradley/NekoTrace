@@ -186,7 +186,12 @@ public sealed class TraceDiskWriter : IAsyncDisposable
                     {
                         using (var gzipStream = new GZipStream(fileStream, CompressionLevel.SmallestSize, leaveOpen: true))
                         {
-                            await JsonSerializer.SerializeAsync(gzipStream, data, cancellationToken: CancellationToken.None);
+                            await JsonSerializer.SerializeAsync(
+                                gzipStream,
+                                data,
+                                TraceSerializableData.SerializerOptions,
+                                CancellationToken.None
+                            );
                         }
                     }
 

@@ -88,7 +88,103 @@ public sealed class TraceFilesControllerTests
 
         Assert.Equal(Otlp.ROOT_SPAN_ID, child.ParentSpanId);
         Assert.Equal("SELECT things", child.Name);
-        Assert.Equal("postgresql", child.Attributes["db.system"]?.ToString());
+        Assert.Equal("postgresql", child.Attributes["db.system"]);
+    }
+
+    [Fact]
+    public async Task RoundTrip_BringsAttributesBackAsTheTypesIngestProduces()
+    {
+        // Without a converter, System.Text.Json hands back a JsonElement for every object-typed value, so
+        // an uploaded trace held different CLR types than the same trace received over OTLP. Invisible to
+        // anything that only calls ToString — but TryGetRootSpanAttribute switches on the type.
+        using var source = Fake.TracesRepository();
+        Ingest(
+            source,
+            Fake.Span(
+                name: "GET /things",
+                attributes: new()
+                {
+                    ["service.name"] = "checkout",
+                    ["http.status_code"] = 200L,
+                    ["sample.rate"] = 0.25,
+                    ["http.cached"] = true,
+                    ["nothing"] = null,
+                }
+            )
+        );
+
+        using var destination = Fake.TracesRepository();
+        await Upload(destination, await DownloadBytes(source, Otlp.TRACE_ID));
+
+        var restored = destination.TryGetTrace(Otlp.TRACE_ID);
+
+        Assert.NotNull(restored);
+
+        var attributes = Assert.Single(restored.Spans).Attributes;
+
+        Assert.Equal("checkout", attributes["service.name"]);
+        Assert.Equal(200L, attributes["http.status_code"]);
+        Assert.Equal(0.25, attributes["sample.rate"]);
+        Assert.True(attributes["http.cached"] is true);
+        Assert.Null(attributes["nothing"]);
+    }
+
+    [Fact]
+    public async Task RoundTrip_KeepsTheRootSpanAttributesTheTracesTableShows()
+    {
+        // The user-visible half of the same bug: the Home page's custom attribute columns read through
+        // TryGetRootSpanAttribute, and came back blank for every uploaded trace.
+        using var source = Fake.TracesRepository();
+        Ingest(
+            source,
+            Fake.Span(
+                name: "GET /things",
+                attributes: new() { ["service.name"] = "checkout", ["http.status_code"] = 200L }
+            )
+        );
+
+        using var destination = Fake.TracesRepository();
+        await Upload(destination, await DownloadBytes(source, Otlp.TRACE_ID));
+
+        var restored = destination.TryGetTrace(Otlp.TRACE_ID);
+
+        Assert.NotNull(restored);
+        Assert.Equal("checkout", restored.TryGetRootSpanAttribute("service.name"));
+        Assert.Equal("200", restored.TryGetRootSpanAttribute("http.status_code"));
+    }
+
+    [Fact]
+    public async Task RoundTrip_KeepsEventAndLinkAttributesToo()
+    {
+        using var source = Fake.TracesRepository();
+
+        var span = Fake.Span(name: "GET /things") with
+        {
+            Events =
+            [
+                new SpanEvent()
+                {
+                    Name = "exception",
+                    Time = Otlp.ORIGIN.AddMilliseconds(5),
+                    Attributes = new() { ["exception.escaped"] = true, ["retries"] = 3L },
+                },
+            ],
+            Links = [new() { ["linked.trace"] = Otlp.OTHER_TRACE_ID }],
+        };
+
+        Ingest(source, span);
+
+        using var destination = Fake.TracesRepository();
+        await Upload(destination, await DownloadBytes(source, Otlp.TRACE_ID));
+
+        var restored = Assert.Single(destination.TryGetTrace(Otlp.TRACE_ID)!.Spans);
+        var restoredEvent = Assert.Single(restored.Events);
+
+        Assert.Equal("exception", restoredEvent.Name);
+        Assert.Equal(Otlp.ORIGIN.AddMilliseconds(5), restoredEvent.Time);
+        Assert.True(restoredEvent.Attributes["exception.escaped"] is true);
+        Assert.Equal(3L, restoredEvent.Attributes["retries"]);
+        Assert.Equal(Otlp.OTHER_TRACE_ID, Assert.Single(restored.Links)["linked.trace"]);
     }
 
     [Fact]
@@ -219,7 +315,8 @@ public sealed class TraceFilesControllerTests
         using var repository = Fake.TracesRepository();
 
         var bytes = JsonSerializer.SerializeToUtf8Bytes(
-            Fake.TraceFile(Otlp.TRACE_ID, Fake.Span())
+            Fake.TraceFile(Otlp.TRACE_ID, Fake.Span()),
+            TraceSerializableData.SerializerOptions
         );
 
         await Upload(repository, bytes, fileName: "trace.json");
@@ -288,7 +385,8 @@ public sealed class TraceFilesControllerTests
 
         return await JsonSerializer.DeserializeAsync<TraceSerializableData>(
             decompressed,
-            cancellationToken: TestContext.Current.CancellationToken
+            TraceSerializableData.SerializerOptions,
+            TestContext.Current.CancellationToken
         )
             ?? throw new InvalidOperationException("The download deserialised to null.");
     }
@@ -315,7 +413,7 @@ public sealed class TraceFilesControllerTests
     }
 
     private static byte[] Gzip(TraceSerializableData file) =>
-        Gzip(JsonSerializer.SerializeToUtf8Bytes(file));
+        Gzip(JsonSerializer.SerializeToUtf8Bytes(file, TraceSerializableData.SerializerOptions));
 
     private static byte[] Gzip(byte[] contents)
     {

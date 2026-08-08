@@ -83,11 +83,29 @@ public sealed class TraceItemTests
     }
 
     [Fact]
+    public void Spans_KeepArrivalOrder_WhenStartTimesTie()
+    {
+        // Plenty of SDKs have millisecond clock resolution, so ties are common rather than exotic. A strict
+        // < in the FindLastIndex predicate filed each tying span ahead of the ones already held, reversing
+        // the group — the same reversal 5cc5ce3 fixed for the general case.
+        using var repository = Fake.TracesRepository();
+        var trace = repository.GetOrAddTrace(Otlp.TRACE_ID);
+
+        trace.AddSpan(Fake.Span(id: "0000000000000001", startMs: 5));
+        trace.AddSpan(Fake.Span(id: "0000000000000002", startMs: 5));
+        trace.AddSpan(Fake.Span(id: "0000000000000003", startMs: 5));
+
+        Assert.Equal(
+            ["0000000000000001", "0000000000000002", "0000000000000003"],
+            Fake.SpanIds(trace)
+        );
+    }
+
+    [Fact]
     public void Spans_AreNeverOutOfOrder_HoweverTheyArrive()
     {
         // The documented invariant itself, over an arrival order that includes spans starting at the same
-        // moment. Where ties land relative to each other is not specified; that they don't break the
-        // ordering is.
+        // moment.
         using var repository = Fake.TracesRepository();
         var trace = repository.GetOrAddTrace(Otlp.TRACE_ID);
 
@@ -230,6 +248,50 @@ public sealed class TraceItemTests
         Assert.Equal("200", trace.TryGetRootSpanAttribute("http.status_code"));
         Assert.Equal("True", trace.TryGetRootSpanAttribute("retry"));
         Assert.Null(trace.TryGetRootSpanAttribute("absent"));
+    }
+
+    [Fact]
+    public void TryGetRootSpanAttribute_RendersAnIntegerAttribute()
+    {
+        // OTLP's IntValue is a long, so every integer attribute arrives boxed as one — and the type switch
+        // used to test for int, which a boxed long never matches. Integer columns were always blank.
+        using var repository = Fake.TracesRepository();
+
+        repository.ProcessTraces(
+            Otlp.Request(
+                resourceAttributes: [Otlp.Attribute("http.status_code", 200L)],
+                scopeAttributes: null,
+                Otlp.Span()
+            )
+        );
+
+        var trace = Assert.Single(repository.Traces);
+
+        Assert.Equal(200L, trace.RootSpan?.Attributes["http.status_code"]);
+        Assert.Equal("200", trace.TryGetRootSpanAttribute("http.status_code"));
+    }
+
+    [Fact]
+    public void TryGetRootSpanAttribute_RendersAValueOfAnUnexpectedType()
+    {
+        // Null means "absent". Anything present renders as something, rather than blanking the column.
+        using var repository = Fake.TracesRepository();
+        var trace = repository.GetOrAddTrace(Otlp.TRACE_ID);
+
+        trace.AddSpan(Fake.Span(attributes: new() { ["odd"] = new Uri("https://example.test/x") }));
+
+        Assert.Equal("https://example.test/x", trace.TryGetRootSpanAttribute("odd"));
+    }
+
+    [Fact]
+    public void TryGetRootSpanAttribute_IsNullForAnAttributeExplicitlySetToNull()
+    {
+        using var repository = Fake.TracesRepository();
+        var trace = repository.GetOrAddTrace(Otlp.TRACE_ID);
+
+        trace.AddSpan(Fake.Span(attributes: new() { ["empty"] = null }));
+
+        Assert.Null(trace.TryGetRootSpanAttribute("empty"));
     }
 
     [Fact]

@@ -42,14 +42,14 @@ Two rules cut across everything:
 
 ## Conventions
 
-`.editorconfig` is large and enforced (`EnforceCodeStyleInBuild`, `AnalysisMode=All`), so style deviations surface as build warnings. The non-obvious ones:
+`.editorconfig` is large and enforced (`Directory.Build.props` sets `EnforceCodeStyleInBuild`, `AnalysisMode=All` and `TreatWarningsAsErrors` for every project). The non-obvious ones:
 
 - private/internal fields are `mCamelCase`, statics are `sCamelCase`, consts are `ALL_UPPER`;
 - `this.` is required for properties, methods and events, but *not* for fields (hence `mFoo` bare, `this.Bar` qualified);
 - file-scoped namespaces, `using` directives *inside* the namespace, System directives not sorted first;
 - open brace on a new line; 4 spaces.
 
-When an analyzer rule genuinely doesn't apply, suppress it narrowly with `#pragma warning disable CAxxxx` plus the rule name in the comment, matching existing usage — don't relax the project-wide settings.
+When an analyzer rule genuinely doesn't apply, suppress it narrowly with `#pragma warning disable CAxxxx` plus the rule name in the comment, matching existing usage. To turn a rule down everywhere, set its severity in `.editorconfig` (which the IDE reads live) rather than adding to `NoWarn`. `WarningsNotAsErrors` in `Directory.Build.props` is the escape hatch if an SDK upgrade lands a new warning mid-flight — don't relax `TreatWarningsAsErrors` itself.
 
 Blazor components use the `.razor` + `.razor.cs` partial-class split with scoped `.razor.css`; put logic in the code-behind.
 

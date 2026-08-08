@@ -47,7 +47,8 @@ public sealed class TraceFilesController : ControllerBase
                 Id = trace.Id,
                 Spans = [.. trace.Spans],
             },
-            cancellationToken: cancellationToken
+            TraceSerializableData.SerializerOptions,
+            cancellationToken
         );
     }
 
@@ -72,14 +73,16 @@ public sealed class TraceFilesController : ControllerBase
 
                 uploadedTrace = await JsonSerializer.DeserializeAsync<TraceSerializableData>(
                     decompressionStream,
-                    cancellationToken: cancellationToken
+                    TraceSerializableData.SerializerOptions,
+                    cancellationToken
                 );
             }
             else
             {
                 uploadedTrace = await JsonSerializer.DeserializeAsync<TraceSerializableData>(
                     fileStream,
-                    cancellationToken: cancellationToken
+                    TraceSerializableData.SerializerOptions,
+                    cancellationToken
                 );
             }
 

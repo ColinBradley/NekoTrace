@@ -6,8 +6,6 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <OutputType>Exe</OutputType>
         <IsPackable>false</IsPackable>
-        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-        <AnalysisMode>All</AnalysisMode>
     </PropertyGroup>
 
     <ItemGroup>

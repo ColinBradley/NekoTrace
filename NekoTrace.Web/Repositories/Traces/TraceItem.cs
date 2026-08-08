@@ -26,16 +26,26 @@ public sealed record TraceItem : IDisposable
 
     public bool HasError { get; private set; }
 
+    /// <summary>
+    /// A root span attribute rendered for display, or null when the root span hasn't arrived or carries no
+    /// such attribute. Note that null means *absent*: every value that is present renders as something.
+    /// </summary>
     public string? TryGetRootSpanAttribute(string name)
     {
         return this.RootSpan?.Attributes.TryGetValue(name, out var value) is true
             ? value switch
             {
+                null => null,
                 string stringValue => stringValue,
                 bool v => v.ToString(),
+                // OTLP's IntValue is a long, so an integer attribute arrives boxed as one and never
+                // matched the int case that used to be here.
+                long v => v.ToString(CultureInfo.InvariantCulture),
                 int v => v.ToString(CultureInfo.InvariantCulture),
                 double v => v.ToString(CultureInfo.InvariantCulture),
-                _ => null,
+                // Anything else — an OTLP ArrayValue, a KvlistValue — renders the way the rest of the UI
+                // renders attributes, rather than silently blanking the column.
+                _ => value.ToString(),
             }
             : null;
     }
@@ -74,9 +84,12 @@ public sealed record TraceItem : IDisposable
             return;
         }
 
-        // Insert *after* the last span that starts earlier, hence the + 1. That also covers the no-match case:
-        // FindLastIndex returns -1 when this span starts before everything held, which lands it at index 0.
-        var insertIndex = this.Spans.FindLastIndex(s => s.StartTime < span.StartTime);
+        // Insert *after* the last span that starts no later than this one, hence the + 1. That also covers
+        // the no-match case: FindLastIndex returns -1 when this span starts before everything held, which
+        // lands it at index 0. The comparison includes equality so that spans sharing a start time keep
+        // their arrival order — an SDK with millisecond clock resolution produces plenty of those, and a
+        // strict < would file each one ahead of its predecessors, reversing the group.
+        var insertIndex = this.Spans.FindLastIndex(s => s.StartTime <= span.StartTime);
 
         this.Spans = this.Spans.Insert(insertIndex + 1, span);
         this.SpansById = this.SpansById.SetItem(span.Id, span);

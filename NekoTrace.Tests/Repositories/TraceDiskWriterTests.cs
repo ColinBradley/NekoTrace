@@ -250,7 +250,8 @@ public sealed class TraceDiskWriterTests : IDisposable
 
         return await JsonSerializer.DeserializeAsync<TraceSerializableData>(
             decompressed,
-            cancellationToken: TestContext.Current.CancellationToken
+            TraceSerializableData.SerializerOptions,
+            TestContext.Current.CancellationToken
         )
             ?? throw new InvalidOperationException($"'{fileName}' deserialised to null.");
     }
