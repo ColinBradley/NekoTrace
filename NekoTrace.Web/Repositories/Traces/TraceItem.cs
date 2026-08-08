@@ -74,9 +74,11 @@ public sealed record TraceItem : IDisposable
             return;
         }
 
+        // Insert *after* the last span that starts earlier, hence the + 1. That also covers the no-match case:
+        // FindLastIndex returns -1 when this span starts before everything held, which lands it at index 0.
         var insertIndex = this.Spans.FindLastIndex(s => s.StartTime < span.StartTime);
 
-        this.Spans = insertIndex >= 0 ? this.Spans.Insert(insertIndex, span) : this.Spans.Add(span);
+        this.Spans = this.Spans.Insert(insertIndex + 1, span);
         this.SpansById = this.SpansById.SetItem(span.Id, span);
 
         this.HasError =
