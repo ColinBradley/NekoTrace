@@ -85,9 +85,9 @@
 	<div class="info">
 		@if (this.SelectedSpan is not null)
 		{
-			// Note: blazor (in Visual Studio) doesn't format C# very well atm, so we're stuck with this mess ¬_¬
-			var hideNameUrl = this.Navigation.GetUriWithQueryParameter(nameof(this.HiddenSpanNames),string.Join('|',(this.HiddenSpanNames ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries).Concat([this.SelectedSpan.Name]).Distinct(StringComparer.Ordinal)));
-			var hideIdUrl = this.Navigation.GetUriWithQueryParameter(nameof(this.HiddenSpanIds),string.Join('|',(this.HiddenSpanIds ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries).Concat([this.SelectedSpan.Id]).Distinct(StringComparer.Ordinal)));
+			var hideNameUrl = this.GetUriWithAddedFilterValue(nameof(this.HiddenSpanNames), this.HiddenSpanNames, this.SelectedSpan.Name);
+			var hideIdUrl = this.GetUriWithAddedFilterValue(nameof(this.HiddenSpanIds), this.HiddenSpanIds, this.SelectedSpan.Id);
+			var hiddenAttributeNames = this.HiddenAttributeNameSet;
 
 			<div style="display: flex; gap: 1ch;">
 				<a href="@hideIdUrl">
@@ -143,10 +143,11 @@
 						<CopyableValue Value="@this.SelectedSpan.StatusMessage" />
 					</dd>
 				}
-				@foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key))
+				@foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key).Where(e => !hiddenAttributeNames.Contains(e.Key)))
 				{
-					<dt>
+					<dt class="key">
 						@spanAttribute.Key
+						<HideAttributeButton Href="@this.GetUriWithAddedFilterValue(nameof(this.HiddenAttributeNames), this.HiddenAttributeNames, spanAttribute.Key)" />
 					</dt>
 					<dd class="value">
 						<CopyableValue Value="@spanAttribute.Value" />
@@ -171,10 +172,11 @@
 							<dd class="time">
 								<CopyableValue Value="@spanEvent.Time" />
 							</dd>
-							@foreach (var eventAttribute in spanEvent.Attributes)
+							@foreach (var eventAttribute in spanEvent.Attributes.Where(e => !hiddenAttributeNames.Contains(e.Key)))
 							{
 								<dt class="key">
 									@eventAttribute.Key
+									<HideAttributeButton Href="@this.GetUriWithAddedFilterValue(nameof(this.HiddenAttributeNames), this.HiddenAttributeNames, eventAttribute.Key)" />
 								</dt>
 								<dd class="value">
 									<CopyableValue Value="@eventAttribute.Value" />

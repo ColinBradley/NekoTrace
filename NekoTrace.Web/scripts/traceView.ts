@@ -338,7 +338,7 @@ class TraceRenderer {
             // Zoom
             const scrolledContentPosition = (this.pointerX - this.left) / (this.canvasElement.width * this.zoomRatio);
 
-            const zoomIntensity = isTrackpad ? 0.05 : 0.2;
+            const zoomIntensity = isTrackpad ? 0.05 : 0.3;
             const scale = e.deltaY > 0 ? (1 - zoomIntensity) : (1 + zoomIntensity);
 
             this.zoomRatio *= scale;

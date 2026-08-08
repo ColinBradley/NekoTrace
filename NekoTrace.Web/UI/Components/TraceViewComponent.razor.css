@@ -34,6 +34,17 @@
 		opacity: 1;
 	}
 
+	/* Hidden with opacity rather than display so that the key column doesn't resize while the mouse moves down the list */
+	.span-info dt ::deep .hide-button {
+		opacity: 0;
+	}
+
+	.span-info dt:hover ::deep .hide-button,
+	.span-info dt:has(+ dd:hover) ::deep .hide-button,
+	.span-info dt ::deep .hide-button:focus-visible {
+		opacity: 1;
+	}
+
 canvas {
 	background-color: #181818;
 }

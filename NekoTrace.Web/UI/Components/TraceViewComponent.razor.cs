@@ -33,6 +33,9 @@ public partial class TraceViewComponent
     [SupplyParameterFromQuery]
     public string? HiddenSpanIds { get; set; }
 
+    [SupplyParameterFromQuery]
+    public string? HiddenAttributeNames { get; set; }
+
     [Inject]
     public required TracesRepository TracesRepo { get; set; }
 
@@ -55,6 +58,24 @@ public partial class TraceViewComponent
             : null;
 
     private string EffectiveSpanColorSelector => this.SpanColorSelector ?? DEFAULT_SPAN_COLOR_SELECTOR;
+
+    private ImmutableHashSet<string> HiddenAttributeNameSet =>
+        SplitFilterValue(this.HiddenAttributeNames).ToImmutableHashSet(StringComparer.Ordinal);
+
+    private static string[] SplitFilterValue(string? value) =>
+        value?.Split('|', StringSplitOptions.RemoveEmptyEntries) ?? [];
+
+    /// <summary>
+    /// Builds a link to the current page with <paramref name="newValue"/> added to a pipe separated query parameter.
+    /// </summary>
+    private string GetUriWithAddedFilterValue(string parameterName, string? currentValue, string newValue) =>
+        this.Navigation.GetUriWithQueryParameter(
+            parameterName,
+            string.Join(
+                '|',
+                SplitFilterValue(currentValue).Append(newValue).Distinct(StringComparer.Ordinal)
+            )
+        );
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
