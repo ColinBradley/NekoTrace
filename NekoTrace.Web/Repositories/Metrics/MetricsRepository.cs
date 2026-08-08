@@ -153,6 +153,9 @@ public sealed class MetricsRepository : IDisposable
                             StringComparison.OrdinalIgnoreCase
                         )
                 )
+                // Keep the first value seen for a duplicated key rather than throwing,
+                // which would fail the whole export request.
+                .DistinctBy(p => p.Key, StringComparer.Ordinal)
                 .ToImmutableDictionary(p => p.Key, p => p.Value.StringValue)
             );
 

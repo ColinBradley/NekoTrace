@@ -118,13 +118,12 @@ public sealed class TracesRepository : IDisposable
                                 new("otel.library.name", scopeSpan.Scope.Name),
                                 new("otel.library.version", scopeSpan.Scope.Version),
                             ]
-                        )
-                        .ToArray();
+                        );
 
                 foreach (var span in scopeSpan.Spans)
                 {
                     var trace = this.GetOrAddTrace(span.TraceId);
-                    trace.AddSpan(ConvertSpan(span, [.. resourceAttributes, .. scopeAttributes]));
+                    trace.AddSpan(ConvertSpan(span, scopeAttributes.Concat(resourceAttributes)));
                     touchedTraces.Add(trace);
                 }
             }
@@ -236,7 +235,7 @@ public sealed class TracesRepository : IDisposable
             ParentSpanId = span.ParentSpanId.IsEmpty ? null : span.ParentSpanId.ToBase64(),
             Name = span.Name,
             Kind = span.Kind,
-            Attributes = new([.. ConvertAttributes(span.Attributes), .. extraAttributes]),
+            Attributes = ToDictionarySafe(ConvertAttributes(span.Attributes).Concat(extraAttributes)),
             StartTime = TimeFromUnixNano(span.StartTimeUnixNano),
             StartTimeMs = span.StartTimeUnixNano / 1_000_000.0,
             EndTime = TimeFromUnixNano(span.EndTimeUnixNano),
@@ -250,14 +249,12 @@ public sealed class TracesRepository : IDisposable
                 {
                     Name = e.Name,
                     Time = TimeFromUnixNano(e.TimeUnixNano),
-                    Attributes = new(ConvertAttributes(e.Attributes)),
+                    Attributes = ToDictionarySafe(ConvertAttributes(e.Attributes)),
                 }),
             ],
             Links =
             [
-                .. span.Links.Select(l =>
-                    l.Attributes.ToDictionary(e => e.Key, e => ConvertAnyValue(e.Value))
-                ),
+                .. span.Links.Select(l => ToDictionarySafe(ConvertAttributes(l.Attributes))),
             ],
         };
     }
@@ -283,5 +280,11 @@ public sealed class TracesRepository : IDisposable
 
     private static IEnumerable<KeyValuePair<string, object?>> ConvertAttributes(
         RepeatedField<KeyValue> attributes
-    ) => attributes.Select(e => new KeyValuePair<string, object?>(e.Key, ConvertAnyValue(e.Value)));
+    ) =>
+        attributes.Select(e => new KeyValuePair<string, object?>(e.Key, ConvertAnyValue(e.Value)));
+
+    private static Dictionary<string, object?> ToDictionarySafe(
+        IEnumerable<KeyValuePair<string, object?>> attributes
+    ) =>
+        attributes.DistinctBy(pair => pair.Key, StringComparer.Ordinal).ToDictionary();
 }
