@@ -2,6 +2,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using NekoTrace.Web.Repositories.Traces;
+using NekoTrace.Web.Utilities;
 using System.IO.Compression;
 using System.Text.Json;
 
@@ -16,7 +17,6 @@ public sealed class TraceFilesController : ControllerBase
         mTraces = traces;
     }
 
-    // Note: we have to use query string as the ids are base64 and can include forward slashes. We could encode into decimal, but meh..
     [HttpGet()]
     public async Task DownloadTraceSpans(
         [FromQuery] string traceId,
@@ -83,13 +83,26 @@ public sealed class TraceFilesController : ControllerBase
                 continue;
             }
 
+            // Files downloaded before NekoTrace moved to hex ids carry base64 throughout, so every id in the
+            // file is normalised, not just the trace's own. Converting only the trace id would leave the spans
+            // pointing at a trace key that no longer matches.
             var trace = mTraces.GetOrAddTrace(
-                Google.Protobuf.ByteString.FromBase64(uploadedTrace.Id)
+                TraceIds.NormalizeToHex(uploadedTrace.Id, TraceIds.TRACE_ID_BYTE_LENGTH)
             );
 
-            trace.AddSpans(uploadedTrace.Spans);
+            trace.AddSpans(uploadedTrace.Spans.Select(NormalizeSpanIds));
         }
 
         return new NoContentResult();
     }
+
+    private static SpanData NormalizeSpanIds(SpanData span) =>
+        span with
+        {
+            Id = TraceIds.NormalizeToHex(span.Id, TraceIds.SPAN_ID_BYTE_LENGTH),
+            TraceId = TraceIds.NormalizeToHex(span.TraceId, TraceIds.TRACE_ID_BYTE_LENGTH),
+            ParentSpanId = string.IsNullOrEmpty(span.ParentSpanId)
+                ? null
+                : TraceIds.NormalizeToHex(span.ParentSpanId, TraceIds.SPAN_ID_BYTE_LENGTH),
+        };
 }

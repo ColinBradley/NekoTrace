@@ -45,10 +45,11 @@ public sealed class TracesRepository : IDisposable
             : null;
     }
 
-    internal TraceItem GetOrAddTrace(ByteString traceId)
-    {
-        var stringId = traceId.ToBase64();
+    internal TraceItem GetOrAddTrace(ByteString traceId) =>
+        this.GetOrAddTrace(TraceIds.ToHex(traceId));
 
+    internal TraceItem GetOrAddTrace(string stringId)
+    {
         using var readLock = mTracesLock.UpgradeableRead();
 
         if (!mTracesById.TryGetValue(stringId, out var trace))
@@ -230,9 +231,9 @@ public sealed class TracesRepository : IDisposable
     {
         return new SpanData()
         {
-            TraceId = span.TraceId.ToBase64(),
-            Id = span.SpanId.ToBase64(),
-            ParentSpanId = span.ParentSpanId.IsEmpty ? null : span.ParentSpanId.ToBase64(),
+            TraceId = TraceIds.ToHex(span.TraceId),
+            Id = TraceIds.ToHex(span.SpanId),
+            ParentSpanId = span.ParentSpanId.IsEmpty ? null : TraceIds.ToHex(span.ParentSpanId),
             Name = span.Name,
             Kind = span.Kind,
             Attributes = ToDictionarySafe(ConvertAttributes(span.Attributes).Concat(extraAttributes)),

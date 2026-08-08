@@ -15,12 +15,12 @@ internal static class OtlpJsonIdNormalizer
     private static readonly Dictionary<string, int> sIdByteLengthsByFieldName =
         new(StringComparer.Ordinal)
         {
-            ["traceId"] = 16,
-            ["trace_id"] = 16,
-            ["spanId"] = 8,
-            ["span_id"] = 8,
-            ["parentSpanId"] = 8,
-            ["parent_span_id"] = 8,
+            ["traceId"] = TraceIds.TRACE_ID_BYTE_LENGTH,
+            ["trace_id"] = TraceIds.TRACE_ID_BYTE_LENGTH,
+            ["spanId"] = TraceIds.SPAN_ID_BYTE_LENGTH,
+            ["span_id"] = TraceIds.SPAN_ID_BYTE_LENGTH,
+            ["parentSpanId"] = TraceIds.SPAN_ID_BYTE_LENGTH,
+            ["parent_span_id"] = TraceIds.SPAN_ID_BYTE_LENGTH,
         };
 
     /// <summary>
@@ -116,21 +116,12 @@ internal static class OtlpJsonIdNormalizer
         [NotNullWhen(true)] out string? base64
     )
     {
-        base64 = null;
-
-        // Length alone separates the two encodings: a 16 byte trace id is 32 hex characters but only 24 base64
-        // characters, and an 8 byte span id is 16 against 12. So anything of hex length was meant to be hex.
-        if (value is null || value.Length != expectedByteLength * 2)
+        // Anything of hex length was meant to be hex; anything else is left for the protobuf parser to judge.
+        if (!TraceIds.IsHexId(value, expectedByteLength))
         {
+            base64 = null;
+
             return false;
-        }
-
-        foreach (var character in value)
-        {
-            if (!char.IsAsciiHexDigit(character))
-            {
-                return false;
-            }
         }
 
         base64 = Convert.ToBase64String(Convert.FromHexString(value));
