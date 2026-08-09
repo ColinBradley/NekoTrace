@@ -64,6 +64,7 @@ Read these only when working in the area they cover.
 
 | File | Read it when |
 | --- | --- |
+| [docs/feature-design.md](docs/feature-design.md) | Judging whether a feature belongs in NekoTrace at all, or revisiting something already declined. |
 | [docs/data-model.md](docs/data-model.md) | Touching how traces/spans/metrics are stored, indexed, locked, trimmed or written to disk. |
 | [docs/filtering.md](docs/filtering.md) | Adding or changing a filter dimension, or anything using `TraceFilter`. |
 | [docs/configuration.md](docs/configuration.md) | Adding a config option, or changing how config is read. |
