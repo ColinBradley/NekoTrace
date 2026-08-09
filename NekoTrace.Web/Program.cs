@@ -7,6 +7,7 @@ using NekoTrace.Web.Repositories.Metrics;
 using NekoTrace.Web.Repositories.Traces;
 using NekoTrace.Web.Services;
 using NekoTrace.Web.UI;
+using System.Globalization;
 
 var configFilePath = Path.Combine(
     Environment.GetFolderPath(
@@ -105,6 +106,17 @@ var webAppTask = Task.Run(async () =>
     );
 
     var webApp = webAppBuilder.Build();
+
+    var supportedCultures = CultureInfo
+        .GetCultures(CultureTypes.SpecificCultures)
+        .Select(c => c.Name)
+        .ToArray();
+
+    webApp.UseRequestLocalization(
+        new RequestLocalizationOptions()
+            .AddSupportedCultures(supportedCultures)
+            .AddSupportedUICultures(supportedCultures)
+    );
 
     webApp.UseAntiforgery();
 

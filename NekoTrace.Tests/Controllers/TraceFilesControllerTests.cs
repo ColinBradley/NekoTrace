@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using NekoTrace.Tests.TestData;
 using NekoTrace.Web.Controllers;
 using NekoTrace.Web.Repositories.Traces;
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -49,6 +50,36 @@ public sealed class TraceFilesControllerTests
         Assert.Equal("application/gzip", controller.Response.ContentType);
         Assert.Contains(
             "GET%20%2Fthings",
+            controller.Response.Headers.ContentDisposition.ToString(),
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
+    public async Task Download_StampsTheFileWithAGregorianDateWhateverTheViewersCalendar()
+    {
+        // The regression this defends: the timestamp was interpolated without a format provider, so once
+        // UseRequestLocalization started setting CurrentCulture from Accept-Language, `yy` began rendering in
+        // the *viewer's calendar*. A Thai viewer downloaded year 68 and a Saudi one a Hijri date, none of which
+        // matched the invariant name TraceDiskWriter gives the very same trace on disk.
+        using var repository = Fake.TracesRepository();
+        Ingest(repository, Fake.Span(name: "GET /things"));
+
+        var (controller, _) = Controller(repository);
+
+        var previousCulture = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = new CultureInfo("th-TH");
+        try
+        {
+            await controller.DownloadTraceSpans(Otlp.TRACE_ID, TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+        }
+
+        Assert.Contains(
+            Otlp.ORIGIN.ToString("yyMMddTHHmmss", CultureInfo.InvariantCulture),
             controller.Response.Headers.ContentDisposition.ToString(),
             StringComparison.Ordinal
         );

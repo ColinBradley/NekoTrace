@@ -39,7 +39,7 @@ Three rules cut across everything:
 
 - **Repositories mutate under a lock and publish immutable snapshots.** Readers never lock. Produce a new immutable collection rather than mutating in place.
 - **UI state lives in the URL.** Pages use `[SupplyParameterFromQuery]` and navigate with `replace: true`, so views stay shareable. Keep new view options query-parameter-driven.
-- **Timestamps are rendered in the browser's zone, never the server's.** Everything is stored as UTC; the scoped `BrowserTimeZone` service converts on the way out, and any new timestamp — or any `datetime-local` input, which carries no offset of its own — goes through it. Nothing may read the host clock's zone: NekoTrace usually runs in a UTC container. See [docs/time-zones.md](docs/time-zones.md).
+- **The UI renders for the viewer's browser, never the host.** Timestamps are stored as UTC and converted on the way out by the scoped `BrowserTimeZone` service; numbers and dates are formatted by `CurrentCulture`, which `UseRequestLocalization` sets from `Accept-Language`. Values coming *back* from form controls are always invariant, so parse them through `Utilities/InputValues.cs` (or `BrowserTimeZone.ParseInputToLocal`) rather than directly. Nothing may read the host's zone or locale: NekoTrace usually runs in a UTC, invariant-culture container. See [docs/localization.md](docs/localization.md).
 
 ## Conventions
 
@@ -68,6 +68,6 @@ Read these only when working in the area they cover.
 | [docs/filtering.md](docs/filtering.md) | Adding or changing a filter dimension, or anything using `TraceFilter`. |
 | [docs/configuration.md](docs/configuration.md) | Adding a config option, or changing how config is read. |
 | [docs/trace-viewer.md](docs/trace-viewer.md) | Working on the flame graph canvas, `scripts/*.ts`, or the .NET↔JS interop. |
-| [docs/time-zones.md](docs/time-zones.md) | Rendering a timestamp, reading a date input, or touching how the browser's zone reaches the server. |
+| [docs/localization.md](docs/localization.md) | Rendering a timestamp or a number, reading any form input, or touching how the browser's zone and culture reach the server. |
 | [docs/build-and-release.md](docs/build-and-release.md) | Cutting a release, changing publish/Docker/CI, or touching `Protos/`. |
 | [docs/testing.md](docs/testing.md) | Adding or changing tests, or wondering why something isn't covered. |

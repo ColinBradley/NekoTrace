@@ -1,5 +1,12 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@using System.Globalization
+
+<!DOCTYPE html>
+@*
+    Follows the negotiated culture rather than being pinned to English, so assistive technology announces
+    numbers and dates the way they are actually formatted. Deliberately only `lang`: `dir` is left alone
+    because nothing in this UI is laid out for right-to-left, and flipping it would break more than it fixed.
+*@
+<html lang="@(CultureInfo.CurrentCulture.Name is { Length: > 0 } name ? name : "en")">
 
 <head>
     <meta charset="utf-8" />

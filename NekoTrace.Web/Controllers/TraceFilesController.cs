@@ -3,6 +3,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NekoTrace.Web.Repositories.Traces;
 using NekoTrace.Web.Utilities;
+using System.Globalization;
 using System.IO.Compression;
 using System.Text.Json;
 
@@ -31,7 +32,10 @@ public sealed class TraceFilesController : ControllerBase
         }
 
         this.Response.ContentType = "application/gzip";
-        this.Response.Headers.ContentDisposition = $"attachment; filename=\"NekoTrace-{trace.Start:yyMMddTHHmmss}-{Uri.EscapeDataString(trace.RootSpan?.Name ?? traceId)}.json.gz\"";
+
+        var timestamp = trace.Start.ToString("yyMMddTHHmmss", CultureInfo.InvariantCulture);
+
+        this.Response.Headers.ContentDisposition = $"attachment; filename=\"NekoTrace-{timestamp}-{Uri.EscapeDataString(trace.RootSpan?.Name ?? traceId)}.json.gz\"";
 
         await using var compressionStream = new GZipStream(
             this.Response.Body,

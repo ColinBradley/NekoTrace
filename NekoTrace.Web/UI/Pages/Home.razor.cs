@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories.Traces;
 using NekoTrace.Web.Services;
 using NekoTrace.Web.UI.Components;
+using NekoTrace.Web.Utilities;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -170,8 +171,7 @@ public sealed partial class Home : IDisposable
 
     private void DurationMinimum_Change(ChangeEventArgs e)
     {
-        this.DurationMinimum =
-            double.TryParse(e.Value as string, out var value) && value is > 0 ? value : null;
+        this.DurationMinimum = InputValues.TryParseDouble(e.Value) is double value and > 0 ? value : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
@@ -184,8 +184,7 @@ public sealed partial class Home : IDisposable
 
     private void DurationMaximum_Change(ChangeEventArgs e)
     {
-        this.DurationMaximum =
-            double.TryParse(e.Value as string, out var value) && value is > 0 ? value : null;
+        this.DurationMaximum = InputValues.TryParseDouble(e.Value) is double value and > 0 ? value : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(
@@ -198,8 +197,7 @@ public sealed partial class Home : IDisposable
 
     private void SpansMinimum_Change(ChangeEventArgs e)
     {
-        this.SpansMinimum =
-            int.TryParse(e.Value as string, out var value) && value is > 1 ? value : null;
+        this.SpansMinimum = InputValues.TryParseInt32(e.Value) is int value and > 1 ? value : null;
 
         this.Navigation.NavigateTo(
             this.Navigation.GetUriWithQueryParameter(nameof(this.SpansMinimum), this.SpansMinimum),
