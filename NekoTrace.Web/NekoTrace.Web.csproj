@@ -21,6 +21,7 @@
         <PackageReference Include="Blazor-ApexCharts" />
         <PackageReference Include="Grpc.AspNetCore" />
         <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid" />
+        <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <PackageReference Include="Microsoft.TypeScript.MSBuild">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

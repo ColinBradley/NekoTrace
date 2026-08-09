@@ -1,8 +1,10 @@
 using ApexCharts;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using NekoTrace.Web.Analysis;
 using NekoTrace.Web.Configuration;
 using NekoTrace.Web.Endpoints;
 using NekoTrace.Web.GrpcServices;
+using NekoTrace.Web.Mcp;
 using NekoTrace.Web.Repositories.Metrics;
 using NekoTrace.Web.Repositories.Traces;
 using NekoTrace.Web.Services;
@@ -91,12 +93,20 @@ var webAppTask = Task.Run(async () =>
 
     webAppBuilder.Services.AddSingleton(traces);
     webAppBuilder.Services.AddSingleton(metrics);
+    webAppBuilder.Services.AddSingleton<TraceViews>();
 
     webAppBuilder.Services.AddApexCharts();
     webAppBuilder.Services.AddHttpContextAccessor();
     webAppBuilder.Services.AddScoped<BrowserTimeZone>();
     webAppBuilder.Services.AddRazorComponents().AddInteractiveServerComponents();
     webAppBuilder.Services.AddControllers();
+
+    // Served in process on the web host rather than as a separate stdio binary: NekoTrace is already a
+    // server, so there is nothing extra to run and configuring a client is one URL. See docs/ai-access.md.
+    webAppBuilder.Services
+        .AddMcpServer()
+        .WithHttpTransport()
+        .WithTools<TraceTools>();
 
     webAppBuilder.WebHost.ConfigureKestrel(
         o =>
@@ -123,6 +133,7 @@ var webAppTask = Task.Run(async () =>
     webApp.MapStaticAssets();
     webApp.MapRazorComponents<App>().AddInteractiveServerRenderMode();
     webApp.MapControllers();
+    webApp.MapMcp("/mcp");
 
     webApp.Lifetime.ApplicationStarted.Register(
         () =>

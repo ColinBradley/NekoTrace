@@ -11,6 +11,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.QuickGrid" Version="10.0.10" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <PackageVersion Include="Microsoft.TypeScript.MSBuild" Version="6.0.3" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.1.0" />
     <PackageVersion Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
   </ItemGroup>
   <!-- Test only -->

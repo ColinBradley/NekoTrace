@@ -5,6 +5,7 @@
 - Delightful [tracing](https://opentelemetry.io/docs/concepts/signals/traces/) flame graph-esk viewer with multiple span layout options.
 - Filtering and ordering of traces and spans in tables.
 - View by trace or span type.
+- Built in [MCP server](docs/ai-access.md) at `/mcp`, so an AI agent can read your traces at a size it can actually handle — a 230,000 span trace summarises in a page.
 - Simple to run - [portable executable](https://github.com/ColinBradley/NekoTrace/releases/latest) with no infrastructure dependencies (like a database).
 - All stored in memory (with retention option(s)).
 

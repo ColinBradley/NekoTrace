@@ -1,10 +1,11 @@
 # Filtering
 
-`Repositories/Traces/TraceFilter.cs` is one filter language serving three consumers:
+`Repositories/Traces/TraceFilter.cs` is one filter language serving four consumers:
 
 - the UI's `[SupplyParameterFromQuery]` page state (Home page trace table);
 - the `TraceIngestFilter` config value — applied on ingest and on each trim tick, discarding traces outright;
-- the `TraceSaveFilter` config value — applied by `TraceDiskWriter` to decide what reaches disk.
+- the `TraceSaveFilter` config value — applied by `TraceDiskWriter` to decide what reaches disk;
+- `GET /api/traces`, which parses its own query string, so a URL copied out of the UI's address bar filters the API identically.
 
 ## Syntax
 
@@ -32,6 +33,8 @@ A trace that is merely incomplete must not be rejected: it may still have no roo
 
 ## Adding a dimension
 
-Touch all of: the record properties, `IsEmpty`, `Parse`, `Matches`, `IsRejected`, and the UI controls plus their query parameters.
+Touch all of: the record properties, `IsEmpty`, `Parse`, `Matches`, `IsRejected`, the UI controls plus their query parameters, and **`Mcp/TraceTools.ListTraces`**.
+
+That last one is the easy one to forget, because unlike the other three consumers it does not take a query string. The MCP tool spells every dimension out as its own described parameter — a model handed one opaque `filter` string has nothing in the schema telling it what may go in there — so a dimension added here and not there is one an MCP caller simply cannot reach. `TraceTools` carries the same note.
 
 Callers cache the parsed filter and re-parse only when the raw config string changes (compare with `StringComparison.Ordinal`); keep that if you add another consumer.
