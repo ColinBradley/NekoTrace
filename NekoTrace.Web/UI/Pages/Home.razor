@@ -187,7 +187,7 @@
 
 				<ChildContent>
 					<div>
-						@context.Start.ToString("HH:mm:ss.fff")
+						@this.BrowserTimeZone.FormatTimeOfDay(context.Start)
 					</div>
 				</ChildContent>
 			</TemplateColumn>

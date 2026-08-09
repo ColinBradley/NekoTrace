@@ -5,6 +5,7 @@ using NekoTrace.Web.Endpoints;
 using NekoTrace.Web.GrpcServices;
 using NekoTrace.Web.Repositories.Metrics;
 using NekoTrace.Web.Repositories.Traces;
+using NekoTrace.Web.Services;
 using NekoTrace.Web.UI;
 
 var configFilePath = Path.Combine(
@@ -92,6 +93,7 @@ var webAppTask = Task.Run(async () =>
 
     webAppBuilder.Services.AddApexCharts();
     webAppBuilder.Services.AddHttpContextAccessor();
+    webAppBuilder.Services.AddScoped<BrowserTimeZone>();
     webAppBuilder.Services.AddRazorComponents().AddInteractiveServerComponents();
     webAppBuilder.Services.AddControllers();
 

@@ -107,7 +107,7 @@
                             IsDefaultSortColumn="true"
                             InitialSortDirection="SortDirection.Descending">
                 <div>
-                    @context.StartTime.ToString("HH:mm:ss.fff")
+                    @this.BrowserTimeZone.FormatTimeOfDay(context.StartTime)
                 </div>
             </TemplateColumn>
 

@@ -34,7 +34,9 @@ public partial class MetricsPage
             Type = XAxisType.Datetime,
             Labels = new XAxisLabels()
             {
-                DatetimeUTC = true,
+                // The points go over as UTC instants; false lets ApexCharts label them in the browser's own zone,
+                // which is where every other timestamp in the UI is shown.
+                DatetimeUTC = false,
             },
         };
         this.MetricChartOptions.Stroke = new Stroke()

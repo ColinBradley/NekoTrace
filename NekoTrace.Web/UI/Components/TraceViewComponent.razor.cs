@@ -3,9 +3,10 @@ namespace NekoTrace.Web.UI.Components;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using NekoTrace.Web.Repositories.Traces;
+using NekoTrace.Web.Services;
 using System.Collections.Immutable;
 
-public partial class TraceViewComponent
+public sealed partial class TraceViewComponent : IDisposable
 {
     public const string DEFAULT_SPAN_COLOR_SELECTOR = "otel.library.name";
 
@@ -45,6 +46,9 @@ public partial class TraceViewComponent
     [Inject]
     public required NavigationManager Navigation { get; set; }
 
+    [Inject]
+    public required BrowserTimeZone BrowserTimeZone { get; set; }
+
     private ElementReference? TraceFlameCanvas { get; set; }
 
     private IJSObjectReference? TraceModule { get; set; }
@@ -76,6 +80,15 @@ public partial class TraceViewComponent
                 SplitFilterValue(currentValue).Append(newValue).Distinct(StringComparer.Ordinal)
             )
         );
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        // The span event times below are shown in the browser's zone, which on a first ever visit only arrives
+        // after this component has already rendered.
+        this.BrowserTimeZone.Changed += this.StateHasChanged;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -157,5 +170,12 @@ public partial class TraceViewComponent
         }
 
         this.TracesRepo.RemoveTrace(this.Trace);
+    }
+
+    public void Dispose()
+    {
+        this.BrowserTimeZone.Changed -= this.StateHasChanged;
+
+        mSelfReference?.Dispose();
     }
 }

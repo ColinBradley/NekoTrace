@@ -35,10 +35,11 @@ Two projects: `NekoTrace.Web`, and `NekoTrace.Tests` covering it. The app itself
 
 Logs and profiles gRPC services exist so exporters don't error, but they discard everything. Only traces and metrics are stored (for now).
 
-Two rules cut across everything:
+Three rules cut across everything:
 
 - **Repositories mutate under a lock and publish immutable snapshots.** Readers never lock. Produce a new immutable collection rather than mutating in place.
 - **UI state lives in the URL.** Pages use `[SupplyParameterFromQuery]` and navigate with `replace: true`, so views stay shareable. Keep new view options query-parameter-driven.
+- **Timestamps are rendered in the browser's zone, never the server's.** Everything is stored as UTC; the scoped `BrowserTimeZone` service converts on the way out, and any new timestamp — or any `datetime-local` input, which carries no offset of its own — goes through it. Nothing may read the host clock's zone: NekoTrace usually runs in a UTC container. See [docs/time-zones.md](docs/time-zones.md).
 
 ## Conventions
 
@@ -53,6 +54,10 @@ When an analyzer rule genuinely doesn't apply, suppress it narrowly with `#pragm
 
 Blazor components use the `.razor` + `.razor.cs` partial-class split with scoped `.razor.css`; put logic in the code-behind.
 
+Markdown: put each paragraph, list item and table row on one line, however long it runs. Don't hard wrap it at a column.
+
+Adhere to machine line ending choices. Windows line endings are probably CRLF. It'll all get stored as LF anyway.
+
 ## Details
 
 Read these only when working in the area they cover.
@@ -63,5 +68,6 @@ Read these only when working in the area they cover.
 | [docs/filtering.md](docs/filtering.md) | Adding or changing a filter dimension, or anything using `TraceFilter`. |
 | [docs/configuration.md](docs/configuration.md) | Adding a config option, or changing how config is read. |
 | [docs/trace-viewer.md](docs/trace-viewer.md) | Working on the flame graph canvas, `scripts/*.ts`, or the .NET↔JS interop. |
+| [docs/time-zones.md](docs/time-zones.md) | Rendering a timestamp, reading a date input, or touching how the browser's zone reaches the server. |
 | [docs/build-and-release.md](docs/build-and-release.md) | Cutting a release, changing publish/Docker/CI, or touching `Protos/`. |
 | [docs/testing.md](docs/testing.md) | Adding or changing tests, or wondering why something isn't covered. |

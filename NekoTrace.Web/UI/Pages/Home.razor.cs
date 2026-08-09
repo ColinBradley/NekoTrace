@@ -3,6 +3,7 @@ namespace NekoTrace.Web.UI.Pages;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories.Traces;
+using NekoTrace.Web.Services;
 using NekoTrace.Web.UI.Components;
 using System.Collections.Immutable;
 using System.Linq;
@@ -21,6 +22,9 @@ public sealed partial class Home : IDisposable
 
     [Inject]
     public required NavigationManager Navigation { get; set; }
+
+    [Inject]
+    public required BrowserTimeZone BrowserTimeZone { get; set; }
 
     [SupplyParameterFromQuery]
     public string? TraceId { get; set; }
@@ -73,12 +77,13 @@ public sealed partial class Home : IDisposable
     {
         get
         {
-            // Build a cache key from all filter parameters
-            var cacheKey = $"{SpansMinimum}|{DurationMinimum}|{DurationMaximum}|{HasError}|{IgnoredTraceNames}|{ExclusiveTraceNames}|{SpanAttributeFilter}|{StartTime}|{EndTime}";
+            // Build a cache key from all filter parameters. The time zone is in there because the start and end
+            // times are read in the browser's zone, so the same text means a different instant once it changes.
+            var cacheKey = $"{SpansMinimum}|{DurationMinimum}|{DurationMaximum}|{HasError}|{IgnoredTraceNames}|{ExclusiveTraceNames}|{SpanAttributeFilter}|{StartTime}|{EndTime}|{this.BrowserTimeZone.Id}";
 
             if (!string.Equals(cacheKey, mCurrentFilterCacheKey, StringComparison.Ordinal))
             {
-                mCurrentFilter = new TraceFilter
+                mCurrentFilter = new TraceFilter()
                 {
                     SpansMinimum = this.SpansMinimum,
                     DurationMinimum = this.DurationMinimum,
@@ -101,8 +106,8 @@ public sealed partial class Home : IDisposable
                             .Where(kvp => !string.IsNullOrEmpty(kvp.Key))
                             .DistinctBy(kvp => kvp.Key, StringComparer.Ordinal)
                             .ToImmutableDictionary(StringComparer.Ordinal),
-                    StartTime = DateTimeOffset.TryParse(this.StartTime, out var startTime) ? startTime : null,
-                    EndTime = DateTimeOffset.TryParse(this.EndTime, out var endTime) ? endTime : null,
+                    StartTime = this.BrowserTimeZone.ParseInputToLocal(this.StartTime),
+                    EndTime = this.BrowserTimeZone.ParseInputToLocal(this.EndTime),
                 };
 
                 mCurrentFilterCacheKey = cacheKey;
@@ -147,6 +152,7 @@ public sealed partial class Home : IDisposable
         base.OnInitialized();
 
         this.TracesRepo.TracesChanged += this.TracesRepo_TracesChanged;
+        this.BrowserTimeZone.Changed += this.StateHasChanged;
     }
 
     private async void TracesRepo_TracesChanged()
@@ -314,5 +320,6 @@ public sealed partial class Home : IDisposable
     public void Dispose()
     {
         this.TracesRepo.TracesChanged -= this.TracesRepo_TracesChanged;
+        this.BrowserTimeZone.Changed -= this.StateHasChanged;
     }
 }

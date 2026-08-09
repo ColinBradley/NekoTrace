@@ -3,6 +3,7 @@ namespace NekoTrace.Web.UI.Pages.Spans;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using NekoTrace.Web.Repositories.Traces;
+using NekoTrace.Web.Services;
 using NekoTrace.Web.UI.Components;
 using System.Collections.Immutable;
 using System.Linq;
@@ -21,6 +22,10 @@ public sealed partial class SpanPage : IDisposable
     private DateTimeOffset? mEndTime;
     private string? mEndTimeRaw;
 
+    // The parsed times depend on the browser's zone as well as the text, so the cached pair has to be thrown
+    // away when the zone arrives rather than only when the text changes.
+    private string? mParsedTimesTimeZoneId;
+
     private bool mHasPendingRefresh;
 
     [Inject]
@@ -28,6 +33,9 @@ public sealed partial class SpanPage : IDisposable
 
     [Inject]
     public required NavigationManager Navigation { get; set; }
+
+    [Inject]
+    public required BrowserTimeZone BrowserTimeZone { get; set; }
 
     [Parameter]
     public required string SpanName { get; set; }
@@ -111,11 +119,7 @@ public sealed partial class SpanPage : IDisposable
     {
         get
         {
-            if (!string.Equals(this.StartTime, mStartTimeRaw, StringComparison.OrdinalIgnoreCase))
-            {
-                mStartTime = DateTimeOffset.TryParse(this.StartTime, out var result) ? result : null;
-                mStartTimeRaw = this.StartTime;
-            }
+            this.EnsureParsedTimes();
 
             return mStartTime;
         }
@@ -125,14 +129,35 @@ public sealed partial class SpanPage : IDisposable
     {
         get
         {
-            if (!string.Equals(this.EndTime, mEndTimeRaw, StringComparison.OrdinalIgnoreCase))
-            {
-                mEndTime = DateTimeOffset.TryParse(this.EndTime, out var result) ? result : null;
-                mEndTimeRaw = this.EndTime;
-            }
+            this.EnsureParsedTimes();
 
             return mEndTime;
         }
+    }
+
+    /// <summary>
+    /// Reparses the start and end filter text when either it or the browser's zone — which the text is read in,
+    /// since a datetime-local input carries no offset of its own — has changed. Both are done together so that
+    /// one noticing the new zone doesn't leave the other holding a value parsed against the old one.
+    /// </summary>
+    private void EnsureParsedTimes()
+    {
+        if (
+            string.Equals(this.StartTime, mStartTimeRaw, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(this.EndTime, mEndTimeRaw, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(this.BrowserTimeZone.Id, mParsedTimesTimeZoneId, StringComparison.Ordinal)
+        )
+        {
+            return;
+        }
+
+        mStartTime = this.BrowserTimeZone.ParseInputToLocal(this.StartTime);
+        mStartTimeRaw = this.StartTime;
+
+        mEndTime = this.BrowserTimeZone.ParseInputToLocal(this.EndTime);
+        mEndTimeRaw = this.EndTime;
+
+        mParsedTimesTimeZoneId = this.BrowserTimeZone.Id;
     }
 
     private GridSort<SpanData> TraceStartGridSort { get; } = GridSort<SpanData>.ByAscending(t => t.StartTime);
@@ -165,6 +190,7 @@ public sealed partial class SpanPage : IDisposable
         base.OnInitialized();
 
         this.TracesRepo.TracesChanged += this.TracesRepo_TracesChanged;
+        this.BrowserTimeZone.Changed += this.StateHasChanged;
     }
 
     private async void TracesRepo_TracesChanged()
@@ -345,5 +371,6 @@ public sealed partial class SpanPage : IDisposable
     public void Dispose()
     {
         this.TracesRepo.TracesChanged -= this.TracesRepo_TracesChanged;
+        this.BrowserTimeZone.Changed -= this.StateHasChanged;
     }
 }

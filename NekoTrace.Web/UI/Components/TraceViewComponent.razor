@@ -170,7 +170,7 @@
 							</dd>
 							<dt>Time</dt>
 							<dd class="time">
-								<CopyableValue Value="@spanEvent.Time" />
+								<CopyableValue Value="@this.BrowserTimeZone.ToBrowserTime(spanEvent.Time)" />
 							</dd>
 							@foreach (var eventAttribute in spanEvent.Attributes.Where(e => !hiddenAttributeNames.Contains(e.Key)))
 							{
