@@ -1,5 +1,9 @@
 <Project>
   <PropertyGroup>
+    <!-- The release version, for every project. Names the artifacts, the GitHub tag and the Docker tag. -->
+    <Version>0.3.3</Version>
+  </PropertyGroup>
+  <PropertyGroup>
     <!--
       Warnings are the enforcement mechanism for the whole .editorconfig, so a build that merely mentions
       them is a build nobody reads. Individual rules are turned down in .editorconfig rather than here, and

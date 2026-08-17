@@ -11,4 +11,7 @@
 /NekoTrace.Web/.config/dotnet-tools.json
 
 /[Pp]ublish/
+/artifacts
 /TestTraces
+
+/benchmark

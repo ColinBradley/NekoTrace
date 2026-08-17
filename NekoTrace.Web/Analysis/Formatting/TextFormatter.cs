@@ -249,7 +249,7 @@ internal static class TextFormatter
 
             if (!string.IsNullOrEmpty(errorClass.Message))
             {
-                text.Append("  \"").Append(Inline(errorClass.Message, 160)).Append('"');
+                text.Append("  \"").Append(Inline.Value(errorClass.Message, 160)).Append('"');
             }
 
             text.AppendLine();
@@ -468,20 +468,11 @@ internal static class TextFormatter
 
             if (!string.IsNullOrEmpty(node.Span.StatusMessage))
             {
-                text.Append(" \"").Append(Inline(node.Span.StatusMessage, 160)).Append('"');
+                text.Append(" \"").Append(Inline.Value(node.Span.StatusMessage, 160)).Append('"');
             }
         }
 
-        if (render.IncludeAttributes)
-        {
-            foreach (var (key, value) in attributes.Varying(node.Span))
-            {
-                if (selector.Includes(key))
-                {
-                    text.Append(' ').Append(key).Append('=').Append(Inline(value?.ToString(), 200));
-                }
-            }
-        }
+        AppendAttributes(text, node.Span, attributes, selector, render);
 
         if (node.IsOrphan)
         {
@@ -505,11 +496,78 @@ internal static class TextFormatter
 
                 foreach (var (key, value) in spanEvent.Attributes.OrderBy(pair => pair.Key, StringComparer.Ordinal))
                 {
-                    text.Append(' ').Append(key).Append('=').Append(Inline(value?.ToString(), 400));
+                    text.Append(' ').Append(key).Append('=').Append(Inline.Value(value?.ToString(), 400));
                 }
 
                 text.AppendLine();
             }
+        }
+    }
+
+    /// <summary>
+    /// The varying attributes of one span, appended to the line it belongs to as space separated pairs.
+    /// </summary>
+    /// <remarks>
+    /// Shared by the tree and the span search so the two cannot disagree about which keys a span shows. The
+    /// hoisted ones are already gone by here — <paramref name="attributes"/> decides that — and
+    /// <paramref name="selector"/> takes out the ones that vary but say nothing.
+    /// </remarks>
+    public static void AppendAttributes(
+        StringBuilder text,
+        SpanData span,
+        AttributeSummary attributes,
+        AttributeSelector selector,
+        SpanRenderOptions render
+    )
+    {
+        if (!render.IncludeAttributes)
+        {
+            return;
+        }
+
+        foreach (var (key, value) in attributes.Varying(span))
+        {
+            if (selector.Includes(key))
+            {
+                text.Append(' ').Append(key).Append('=').Append(Inline.Value(value?.ToString(), 200));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The block every span in a response agrees on, printed once.
+    /// </summary>
+    /// <remarks>
+    /// The tree does without this because whoever is reading a tree read the summary first, and the summary
+    /// carries the block. A span search has no such companion — it can span traces, so no one summary covers
+    /// it — and a reader who did not know that <c>service.name</c> was identical on all of them would go
+    /// looking for it span by span.
+    /// </remarks>
+    public static void AppendCommonAttributes(
+        StringBuilder text,
+        AttributeSummary attributes,
+        AttributeSelector selector,
+        SpanRenderOptions render
+    )
+    {
+        if (!render.IncludeAttributes)
+        {
+            return;
+        }
+
+        var included = attributes.Common.Where(pair => selector.Includes(pair.Key)).ToArray();
+
+        if (included.Length is 0)
+        {
+            return;
+        }
+
+        text.Append("attributes identical on all ").Append(Units.Count(attributes.SpanCount))
+            .AppendLine(" matches, so left off the lines below:");
+
+        foreach (var (key, value) in included)
+        {
+            text.Append(INDENT).Append(key).Append('=').Append(Inline.Value(value?.ToString(), 200)).AppendLine();
         }
     }
 
@@ -573,20 +631,4 @@ internal static class TextFormatter
         }
     }
 
-    /// <summary>
-    /// One line's worth of an attribute value. Line breaks are folded out before truncating, because a value
-    /// like <c>error.stack</c> is many lines long and one of those landing in the middle of a tree destroys
-    /// the indentation that is carrying the structure.
-    /// </summary>
-    private static string? Inline(string? value, int length)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        var folded = value.ReplaceLineEndings(" ⏎ ");
-
-        return folded.Length <= length ? folded : folded[..length] + "…";
-    }
 }

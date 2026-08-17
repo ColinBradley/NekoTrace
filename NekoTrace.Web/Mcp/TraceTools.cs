@@ -183,7 +183,7 @@ public sealed class TraceTools
             + "'*' prints every attribute. Omit for the default, which prints all of them except "
             + "otel.library.* and telemetry.sdk.*."
         )]
-        string? attributeFilter = null,
+        string? attributeKeys = null,
         [Description("Print span attributes at all. Defaults to true.")]
         bool includeAttributes = true,
         [Description(
@@ -208,7 +208,7 @@ public sealed class TraceTools
                     MaxDepth = maxSpanDepth,
                     RootSpanId = startAtSpanId,
                 },
-                AttributeSelector.Parse(attributeFilter),
+                AttributeSelector.Parse(attributeKeys),
                 new SpanRenderOptions()
                 {
                     IncludeAttributes = includeAttributes,
@@ -240,8 +240,12 @@ public sealed class TraceTools
     [McpServerTool(Name = "search_spans")]
     [Description(
         "Finds spans by name, duration, status, kind, time or attribute, within one trace or across every "
-        + "trace held. Every argument is optional and they combine with AND. Returns trace and span ids to "
-        + "feed to get_span."
+        + "trace held. Every argument is optional and they combine with AND. Each match is printed with its "
+        + "attributes, above them the attributes identical across every match, and below them how many "
+        + "matched in total. Both of those cover the whole result, not the page: limit=1 tells you how many "
+        + "spans match and what all of them share, for the price of one row. That is how to establish what a "
+        + "set of spans has in common — opening a few with get_span and generalising is a claim about the "
+        + "few. Returns trace and span ids to feed to get_span."
     )]
     public string SearchSpans(
         [Description("Wildcard pattern over the span name, e.g. 'GET*' or '*Grain*'. Case insensitive.")]
@@ -265,10 +269,27 @@ public sealed class TraceTools
         string? kind = null,
         [Description(
             "Only spans carrying one of these attributes, as 'key=value;key=value'. Values are compared "
-            + "case insensitively, and a span matches when any one pair matches."
+            + "case insensitively, and a span matches when any one pair matches. This decides which spans "
+            + "come back; attributeKeys decides what is printed of them."
         )]
         string? attributeFilter = null,
-        [Description("Maximum spans to return. Defaults to 50.")]
+        [Description(
+            "Which of each match's attributes to print, as comma separated key prefixes — 'http.,db.' or "
+            + "'url.full'. '*' prints every attribute. Omit for the default, which prints all of them except "
+            + "otel.library.* and telemetry.sdk.*."
+        )]
+        string? attributeKeys = null,
+        [Description(
+            "Print the matches' attributes at all. Defaults to true. False gives just ids, names and "
+            + "durations, which is enough when you already know what the matches are and only want to count "
+            + "them."
+        )]
+        bool includeAttributes = true,
+        [Description(
+            "How many matches to print. Defaults to 50. It does not limit the count or the shared attribute "
+            + "block, which always describe every match — so lower it freely when you want the totals rather "
+            + "than the rows."
+        )]
         int limit = DEFAULT_LIMIT
     ) =>
         mViews.SearchSpans(
@@ -284,7 +305,9 @@ public sealed class TraceTools
                 Attributes = AttributeMatcher.Parse(attributeFilter),
             },
             traceId,
-            limit
+            limit,
+            AttributeSelector.Parse(attributeKeys),
+            new SpanRenderOptions() { IncludeAttributes = includeAttributes }
         ).Text;
 
     private static string Found(TraceView? view, string traceId) =>

@@ -23,8 +23,64 @@ public sealed class TraceFilterParseTests
     [Fact]
     public void Parse_AcceptsALeadingQuestionMark()
     {
-        // The UI hands over Location.Query, which keeps the '?'; the config values don't have one.
+        // A URL copied out of the UI's address bar keeps the '?'; the config values don't have one.
         Assert.Equal(3, TraceFilter.Parse("?SpansMinimum=3").SpansMinimum);
+    }
+
+    [Fact]
+    public void Parse_ReadsATimeWithNoOffsetAsUtc()
+    {
+        // Not as the host's local time. None of Parse's three callers has a browser to ask — the read API,
+        // TraceIngestFilter and TraceSaveFilter are all server side — so the host's zone is the only other
+        // candidate, and it makes one config string mean different things on different machines. The UI
+        // never arrives here: it builds a filter through BrowserTimeZone.ParseInputToLocal, which is where a
+        // viewer's zone belongs.
+        var filter = TraceFilter.Parse("StartTime=2026-08-09T14:00:00");
+
+        Assert.Equal(TimeSpan.Zero, filter.StartTime!.Value.Offset);
+        Assert.Equal(new DateTimeOffset(2026, 8, 9, 14, 0, 0, TimeSpan.Zero), filter.StartTime);
+    }
+
+    [Fact]
+    public void Parse_KeepsAnExplicitOffset()
+    {
+        var filter = TraceFilter.Parse("EndTime=2026-08-09T14:00:00%2B02:00");
+
+        Assert.Equal(new DateTimeOffset(2026, 8, 9, 12, 0, 0, TimeSpan.Zero), filter.EndTime);
+    }
+
+    [Fact]
+    public void Parse_AcceptsTheTimestampShapeTheReadApiPrints()
+    {
+        // Units.Timestamp's format, so a time copied out of any analysis output feeds straight back in.
+        var filter = TraceFilter.Parse("StartTime=2026-08-09T14:00:00.000Z");
+
+        Assert.Equal(new DateTimeOffset(2026, 8, 9, 14, 0, 0, TimeSpan.Zero), filter.StartTime);
+    }
+
+    [Fact]
+    public void Parse_ReadsTheSameValuesWhateverTheHostCulture()
+    {
+        // UseRequestLocalization sets CurrentCulture from Accept-Language, so a caller's culture reaches
+        // this. A query string is invariant however that reads.
+        var previous = CultureInfo.CurrentCulture;
+
+        CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+
+        try
+        {
+            var filter = TraceFilter.Parse(
+                "SpansMinimum=1234&DurationMinimum=1.5&StartTime=2026-08-09T14:00:00Z"
+            );
+
+            Assert.Equal(1234, filter.SpansMinimum);
+            Assert.Equal(1.5, filter.DurationMinimum);
+            Assert.Equal(new DateTimeOffset(2026, 8, 9, 14, 0, 0, TimeSpan.Zero), filter.StartTime);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
     }
 
     [Fact]

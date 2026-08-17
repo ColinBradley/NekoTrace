@@ -377,6 +377,42 @@ public sealed class TraceFilesControllerTests
         Assert.Equal([Otlp.ROOT_SPAN_ID, Otlp.CHILD_SPAN_ID], Fake.SpanIds(trace));
     }
 
+    [Fact]
+    public async Task Upload_TellsAJsonCallerWhichTraceItIngested()
+    {
+        // Which is what makes the CLI's --file one command rather than two: the id it needs to query next
+        // cannot be read off a 204, and working it out on the client would mean a second copy of the base64
+        // to hex normalisation above.
+        using var repository = Fake.TracesRepository();
+
+        var result = await Upload(
+            repository,
+            Gzip(Fake.TraceFile(Otlp.TRACE_ID, Fake.Span())),
+            accept: "application/json"
+        );
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+
+        Assert.Equal(Otlp.TRACE_ID, Assert.Single(Assert.IsAssignableFrom<IEnumerable<string>>(ok.Value)));
+    }
+
+    [Fact]
+    public async Task Upload_AnswersABrowserFormWithNoBodyAtAll()
+    {
+        // The Home page posts this route as a plain multipart form, so the response is a navigation and any
+        // body would take the reader off the app. This is a browser's Accept for exactly that, `*/*` and all.
+        using var repository = Fake.TracesRepository();
+
+        var result = await Upload(
+            repository,
+            Gzip(Fake.TraceFile(Otlp.TRACE_ID, Fake.Span())),
+            accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,*/*;q=0.8"
+        );
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Single(repository.Traces);
+    }
+
     private static void Ingest(TracesRepository repository, params SpanData[] spans) =>
         repository.GetOrAddTrace(Otlp.TRACE_ID).AddSpans(spans);
 
@@ -425,7 +461,8 @@ public sealed class TraceFilesControllerTests
     private static async Task<IActionResult> Upload(
         TracesRepository repository,
         byte[] fileBytes,
-        string fileName = "trace.json.gz"
+        string fileName = "trace.json.gz",
+        string? accept = null
     )
     {
         var (controller, _) = Controller(repository);
@@ -439,6 +476,11 @@ public sealed class TraceFilesControllerTests
                 new FormFile(fileStream, 0, fileStream.Length, "files", fileName),
             }
         );
+
+        if (accept is not null)
+        {
+            controller.Request.Headers.Accept = accept;
+        }
 
         return await controller.UploadTraceSpans(TestContext.Current.CancellationToken);
     }

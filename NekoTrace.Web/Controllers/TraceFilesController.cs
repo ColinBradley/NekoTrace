@@ -56,10 +56,23 @@ public sealed class TraceFilesController : ControllerBase
         );
     }
 
+    /// <summary>
+    /// Takes trace files back in, and — for a caller that asked for JSON — answers with the ids it ingested.
+    /// </summary>
+    /// <remarks>
+    /// The Home page posts a plain multipart form straight at this route from the browser, so the response is
+    /// a navigation: any body at all would take the page off the app and leave the reader looking at it. That
+    /// is why the default is still 204. A caller sending <c>Accept: application/json</c> is not a browser
+    /// form — no browser asks for JSON on a form navigation — and gets what it needs to do anything with the
+    /// upload, which is the id to query. Without it the CLI's <c>--file</c> would have to guess, either by
+    /// reading the id out of the file itself (duplicating the base64 to hex normalisation below) or by
+    /// diffing the trace list around the upload (wrong the moment a collector is also receiving spans).
+    /// </remarks>
     [HttpPost()]
     public async Task<IActionResult> UploadTraceSpans(CancellationToken cancellationToken)
     {
         var form = await this.Request.ReadFormAsync(cancellationToken);
+        var ingested = new List<string>();
 
         foreach (var file in form.Files)
         {
@@ -113,10 +126,20 @@ public sealed class TraceFilesController : ControllerBase
             );
 
             trace.AddSpans(uploadedTrace.Spans.Select(NormalizeSpanIds));
+
+            if (!ingested.Contains(trace.Id, StringComparer.Ordinal))
+            {
+                ingested.Add(trace.Id);
+            }
         }
 
-        return new NoContentResult();
+        return this.WantsJson() ? this.Ok(ingested) : new NoContentResult();
     }
+
+    private bool WantsJson() =>
+        this.Request.Headers.Accept.Any(value =>
+            value?.Contains("application/json", StringComparison.OrdinalIgnoreCase) is true
+        );
 
     private static SpanData NormalizeSpanIds(SpanData span) =>
         span with

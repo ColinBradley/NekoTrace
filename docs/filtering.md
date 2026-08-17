@@ -18,7 +18,9 @@ It parses a *query string*, so the UI's address bar and the config values use id
 | `HasError` | bool |
 | `IgnoredTraceNames` / `ExclusiveTraceNames` | root span names, `|`-separated |
 | `SpanAttributeFilter` | `key=value;key=value`, matched case-insensitively against *any* span |
-| `StartTime` / `EndTime` | parseable `DateTimeOffset` |
+| `StartTime` / `EndTime` | ISO 8601; read as UTC when it carries no offset |
+
+Every value is read with the invariant culture, and a time with no offset of its own is UTC. None of the three consumers of `Parse` has a browser to ask, so the host's culture and zone are the only other candidates and both make one string mean different things on different machines. The UI does not come through `Parse` at all — it builds a `TraceFilter` directly through `BrowserTimeZone.ParseInputToLocal`, which is where a viewer's zone belongs.
 
 Unparseable or out-of-range values are silently ignored rather than erroring.
 
@@ -33,8 +35,8 @@ A trace that is merely incomplete must not be rejected: it may still have no roo
 
 ## Adding a dimension
 
-Touch all of: the record properties, `IsEmpty`, `Parse`, `Matches`, `IsRejected`, the UI controls plus their query parameters, and **`Mcp/TraceTools.ListTraces`**.
+Touch all of: the record properties, `IsEmpty`, `Parse`, `Matches`, `IsRejected`, the UI controls plus their query parameters, **`Mcp/TraceTools.ListTraces`** and **`NekoTrace.Cli/Commands/TracesCommand.cs`**.
 
-That last one is the easy one to forget, because unlike the other three consumers it does not take a query string. The MCP tool spells every dimension out as its own described parameter — a model handed one opaque `filter` string has nothing in the schema telling it what may go in there — so a dimension added here and not there is one an MCP caller simply cannot reach. `TraceTools` carries the same note.
+Those last two are the easy ones to forget, because unlike the other consumers neither takes a query string. Both spell every dimension out as its own described parameter — a model handed one opaque `filter` string has nothing in the schema telling it what may go in there, and a `--filter` flag taking one is no better on a command line — so a dimension added here and not there is one an MCP or CLI caller simply cannot reach. `TraceTools` carries the same note. The two use the same names as each other and map them onto the keys above, so `--started-after` and `startedAfter` both mean `StartTime`.
 
 Callers cache the parsed filter and re-parse only when the raw config string changes (compare with `StringComparison.Ordinal`); keep that if you add another consumer.

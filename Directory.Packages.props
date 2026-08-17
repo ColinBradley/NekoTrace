@@ -13,6 +13,7 @@
     <PackageVersion Include="Microsoft.TypeScript.MSBuild" Version="6.0.3" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.1.0" />
     <PackageVersion Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.10" />
   </ItemGroup>
   <!-- Test only -->
   <ItemGroup>

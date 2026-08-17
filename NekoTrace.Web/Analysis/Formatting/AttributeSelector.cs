@@ -6,6 +6,13 @@ using System.Collections.Immutable;
 /// Which attribute keys reach the output, on top of the hoisting <see cref="AttributeSummary"/> already does.
 /// </summary>
 /// <remarks>
+/// Spelled <c>attributeKeys</c> on every surface, never <c>attributeFilter</c>. A filter here decides which
+/// spans come back — <c>attributeFilter</c> on the span search, <c>spanAttributeFilter</c> on the trace list,
+/// <c>errorAttributeFilter</c> on the summary, all of them <see cref="Queries.AttributeMatcher"/> predicates
+/// taking <c>key=value</c>. This decides which fields get printed of the spans that already matched. The two
+/// were both called <c>attributeFilter</c> once, on adjacent tools, with different syntaxes.
+/// </remarks>
+/// <remarks>
 /// Hoisting only removes keys that are constant across the <em>whole</em> response, which leaves the ones that
 /// vary a little and mean nothing. <c>otel.library.name</c> and <c>otel.library.version</c> take four distinct
 /// values across the 19,379 span trace in <c>TestTraces/</c>, so neither hoists, and together they are the
@@ -79,10 +86,10 @@ internal sealed record AttributeSelector
         this switch
         {
             { Included: { } included } =>
-                "only attributes matching " + Patterns(included) + " shown (attributeFilter=* for the rest)",
+                "only attributes matching " + Patterns(included) + " shown (attributeKeys=* for the rest)",
             { Excluded.IsEmpty: false } =>
                 "attributes matching " + Patterns(this.Excluded)
-                    + " omitted (attributeFilter=* to include them)",
+                    + " omitted (attributeKeys=* to include them)",
             _ => null,
         };
 

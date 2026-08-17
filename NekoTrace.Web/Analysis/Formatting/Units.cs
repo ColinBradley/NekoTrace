@@ -23,10 +23,27 @@ internal static class Units
     public static string Offset(double milliseconds) =>
         milliseconds <= 0 ? "+0" : "+" + Duration(milliseconds);
 
+    /// <summary>
+    /// Bare milliseconds, no unit and no grouping, for <see cref="FlatFormatter"/>'s numeric columns.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Duration"/> is for reading and picks a unit per value, which is exactly what stops the
+    /// column being sortable: <c>340ms</c> sorts above <c>1.2s</c> under every numeric sort there is. A format
+    /// whose whole purpose is being fed to <c>sort</c> and <c>awk</c> prints one unit and says which in the
+    /// column name.
+    /// </remarks>
+    public static string Milliseconds(double value) =>
+        value.ToString("0.###", CultureInfo.InvariantCulture);
+
     public static string Percent(double value) =>
         Math.Round(value, value < 10 ? 1 : 0).ToString(CultureInfo.InvariantCulture) + "%";
 
-    public static string Count(int value) => value.ToString("N0", CultureInfo.InvariantCulture);
+    public static string Count(int value) =>
+        value.ToString("N0", CultureInfo.InvariantCulture);
+
+    /// <summary>A count with no grouping separator, for the flat format's columns.</summary>
+    public static string Number(int value) =>
+        value.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
     /// An absolute timestamp, always UTC and always ISO 8601.

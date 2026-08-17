@@ -83,6 +83,8 @@ public sealed class AttributeSummaryTests
     {
         // Excluding by default is a rendering choice rather than compaction, so it has to be visible and
         // reversible rather than something the reader has to notice.
-        Assert.Contains("attributeFilter=*", AttributeSelector.Default.Explain(), StringComparison.Ordinal);
+        // attributeKeys, not attributeFilter: a filter decides which spans come back, and this decides which
+        // of their fields get printed. The two shared a name once, on adjacent tools, with different syntaxes.
+        Assert.Contains("attributeKeys=*", AttributeSelector.Default.Explain(), StringComparison.Ordinal);
     }
 }

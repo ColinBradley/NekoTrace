@@ -1,12 +1,12 @@
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 # https://github.com/dotnet/dotnet-docker/blob/main/README.aspnet.md#full-tag-listing
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.0-noble-chiseled-amd64 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.11-noble-chiseled-amd64 AS base
 USER $APP_UID
 WORKDIR /app
 
 # This stage is used to build the service project
 # https://github.com/dotnet/dotnet-docker/blob/main/README.sdk.md#full-tag-listing
-FROM mcr.microsoft.com/dotnet/sdk:10.0.100-noble-amd64 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.400-noble-amd64 AS build
 ARG BUILD_CONFIGURATION=Release
 
 RUN apt-get update && \
@@ -34,5 +34,6 @@ COPY --from=publish /app/publish .
 
 EXPOSE 8347
 EXPOSE 4317
+EXPOSE 4318
 
 ENTRYPOINT ["dotnet", "NekoTrace.Web.dll"]

@@ -2,7 +2,7 @@
 
 How an agent gets a trace out of NekoTrace without drowning in it. One analysis engine, three front doors: an HTTP API, an MCP server mounted in the same process, and a thin CLI that calls the API.
 
-The engine (`Analysis/`), the HTTP API (`Controllers/TraceAnalysisController.cs`) and the MCP server (`Mcp/TraceTools.cs`) are built. The CLI is not.
+All three are built: the engine in `Analysis/`, the HTTP API in `Controllers/TraceAnalysisController.cs`, the MCP server in `Mcp/TraceTools.cs` and the CLI in `NekoTrace.Cli/`.
 
 ## The problem, measured
 
@@ -34,7 +34,7 @@ Routes sit under `api/traces`, matching the existing `api/trace-files` controlle
 | `GET /api/traces/{id}/summary` | Fixed-size orientation report. See below. | nothing |
 | `GET /api/traces/{id}/profile` | Aggregated call tree, merged by name-path. `count`, `total`, `self`, `p50`, `p95`, `max`, `errors` per node. | distinct call paths |
 | `GET /api/traces/{id}/tree` | Literal chronological span tree, repeated siblings collapsed. | distinct siblings |
-| `GET /api/traces/{id}/spans` | Flat span list matching a span predicate. | matches |
+| `GET /api/traces/{id}/spans` | Flat span list matching a span predicate, each match with its attributes. | matches |
 | `GET /api/traces/{id}/spans/{spanId}` | One span in full — every attribute, event and link, plus its ancestor chain and immediate children. | nothing |
 | `GET /api/spans` | Cross-trace search by name, attribute or duration, plus per-name duration statistics from `SpanRepositoriesByName`. | `limit` |
 
@@ -92,11 +92,15 @@ What was removed is reported (`hidden: 3 names, 8,421 spans, 12.4s`) rather than
 
 These apply to every endpoint, and are lossless.
 
-**Attributes.** Per response, compute which keys are carried by *every* span in it with the same value throughout, hoist them into one `common` block printed once, and emit only the varying keys per span. This is the 37% gone, and it adapts on its own — `service.name` is hoisted in a single-service trace and stays inline in a multi-service one. The rule is "every span has it and they all agree", not "one distinct value among the spans that mention it": hoisting a key half the set carries would assert it of the other half.
+**Attributes.** Per response, compute which keys are carried by *every* span in it with the same value throughout, hoist them into one `common` block printed once, and emit only the varying keys per span. On a span search the response is the set of matches, which makes the hoisted block do double duty: it is compaction, and it is also the answer to "what do these all have in common". A search over 1,975 spans that hoists `url.path` has proved every one of them hit the same URL, over the whole set rather than a sample, in one line — so the block goes *above* the matches in every rendering, not after them.
+
+**`limit` bounds the printing and nothing else.** The match count and the hoisted block both describe every match, not the page. Hoisting over the page instead would make the block's meaning depend on a rendering knob — ask for 50 and it says one thing, ask for 100 and it says another about the same query — and it would leave a caller wanting to know whether 1,975 spans all hit one URL able to learn it only of the 50 they paid to print, with generalising from a sample as the only route to the question they actually asked. So `limit=1` answers "how many are there, and what do they all share" over the whole set in about four lines: on the 230,313 span trace in `TestTraces/` that is 456 bytes, against 4.1 kB for a 30 row page that establishes it of thirty. The cost is a predicate call per non-matching span and an attribute pass over every match — 432ms end to end in the worst case where every span in that trace matches, on a repository the tree and profile views already walk in full. This is the 37% gone, and it adapts on its own — `service.name` is hoisted in a single-service trace and stays inline in a multi-service one. The rule is "every span has it and they all agree", not "one distinct value among the spans that mention it": hoisting a key half the set carries would assert it of the other half.
 
 Hoisting alone is not enough, because it only removes keys that never vary. `otel.library.name` and `otel.library.version` take four distinct values across the 19,379 span trace, so neither hoists, and together they were about a third of every line of a rendered tree. They are therefore **excluded by default**, along with `telemetry.sdk.*`. That is a rendering choice rather than compaction, so unlike hoisting it is stated in the output footer and reversed.
 
-`attributeFilter` takes comma-separated key prefixes — `http.,db.` — and a bare `*` for everything. `*` rather than the word `all` because every other value is matched against attribute keys, and nothing stops a key from starting "all"; a magic word in the same namespace as the data is a collision waiting to happen. There is no spelling for "none" either: switching attributes off is `includeAttributes=false`, which is a question about how much of a span to render rather than about which keys are interesting.
+`attributeKeys` takes comma-separated key prefixes — `http.,db.` — and a bare `*` for everything. `*` rather than the word `all` because every other value is matched against attribute keys, and nothing stops a key from starting "all"; a magic word in the same namespace as the data is a collision waiting to happen. There is no spelling for "none" either: switching attributes off is `includeAttributes=false`, which is a question about how much of a span to render rather than about which keys are interesting.
+
+**`attributeKeys` decides what is printed; a *filter* decides what comes back.** The two were both spelled `attributeFilter` at first, on adjacent tools, with different syntaxes — `get_trace_tree` took key prefixes and `search_spans` took `key=value` pairs — which is a trap for anything reading the schemas rather than the source. So every predicate now carries a qualifier (`attributeFilter` on the span search, `spanAttributeFilter` on the trace list, `errorAttributeFilter` on the summary) and the bare `attributeKeys` is always the render-time selector. The rule is: keys are printed, filters are applied.
 
 **Times.** Relative to trace start in the tree (`+1.204s`), with unit-suffixed durations; absolute ISO 8601 timestamps on the summary and on a single span.
 
@@ -108,11 +112,28 @@ Absolute times are **always UTC**, and there is no parameter to ask for anything
 
 ## Formats and detail
 
-`format=text` (default) or `format=json`. Indented text is the default because nested JSON costs roughly two to three times the tokens for the same structure; JSON is there for when the caller wants to post-process locally.
+`format=text` (default), `format=flat` or `format=json`. Indented text is the default because nested JSON costs roughly two to three times the tokens for the same structure; JSON is there for when the caller wants to post-process locally. A `format` the API does not know is a 400 rather than a quiet fall through to text — a caller who mistyped `flat` and silently got the indented tree would find out from whatever consumed it, a step further from the cause.
 
 `includeAttributes` (default true), `includeEvents` (default false — most spans have none and a stack trace is long) and `shortenSpanIds` (default true). Name, timings, id and error status are always printed; nothing useful comes of hiding those.
 
-Still to do: `flat` (one line per span) and `folded` (`a;b;c 1234`, Brendan Gregg's collapsed-stack format — near-zero overhead and it feeds existing flamegraph tooling).
+`folded` (`a;b;c 1234`, Brendan Gregg's collapsed-stack format) is no longer worth its own format: the flat profile carries the joined path in its last column and the total in its first, so `awk -F'\t' '{print $10, $1}'` is folded output weighted by total time, and the other columns are there for the questions a flamegraph cannot answer.
+
+### flat
+
+One line per span, tab separated, the same field in the same place on every line. This is the format the CLI exists for. `text` carries the tree's structure in its indentation, which is exactly what a `grep` destroys: a matched line arrives with no way to tell what it hung off. `flat` puts the structure in columns instead — `depth` and `parent` say what the leading spaces did, and survive being filtered, sorted and counted.
+
+Four rules make it worth having over "text without the indentation":
+
+- **A fixed field count.** Ten on a tree line: `offsetMs durationMs selfMs depth id parent kind status name attributes`. The variable length part is last and joined into one field, so `cut -f5` means one thing everywhere.
+- **Bare invariant numbers in one unit, named by the column.** `Units.Duration`'s per-value unit reads better and sorts wrongly — `340ms` sorts above `1.2s` under every numeric sort there is — and this format exists to be sorted.
+- **Everything that is not a span is a comment line starting `#`.** `grep -v '^#'` leaves exactly the data, so `wc -l` counts spans, and none of the notes the tree prints — what was hidden, what was past the depth limit, which attributes were left out — has to be dropped to keep that true.
+- **No merging, whatever `collapseThreshold` said.** A `×N` group is a summary and one line per span is the promise; `TraceViews` builds the tree it hands the flat renderer with collapsing off. Nothing else about the request changes, so `HiddenSpanNames`, `maxSpanDepth` and `startAtSpanId` still apply.
+
+Two things that would otherwise need a column of their own go in the trailing attributes field, and are announced in the footer when they appear: a failed span's status message as `status.message=…`, and span events as `event.<eventName>.<attributeKey>=…`. The event name is repeated even when it doubles up into `event.exception.exception.type`, because the traces in `TestTraces/` carry an event named `exception` holding both `message` and `exception.message`, and folding the name in would render two different values under one key.
+
+An orphan's `parent` field reads `orphan:<id>`, with the id left whole — shortening is only unique among the spans that are here, and this one names a span that is not. Without the marker a partially collected trace reads as one that genuinely has 4,043 tops, and the count is stated in the footer.
+
+`flat` is served where the answer is a list: the trace list, the tree, the profile, the span list and the cross-trace search. The profile earns it for the same reason the tree does — its structure is in its indentation, so a `grep` of the text form yields a node with no way to tell what it hung off; the flat form spells the path out in a column. The summary and a single span answer a `format=flat` with a 400 naming the formats they do have: the summary is a fixed size report with no single row type, and a single span is the whole of one span, where flat would truncate away the attributes and events it exists to show. Answering in some near-enough shape instead would leave a caller piping something that only looks like the format it asked for.
 
 ## MCP
 
@@ -130,11 +151,21 @@ Tools return the compact text formats with a one-line legend, and close with a h
 
 ## CLI
 
-A separate `NekoTrace.Cli` project, and a **thin HTTP client** — no embedded analysis engine. NekoTrace is local and cheap to run, so repeated calls to it beat downloading a trace and analysing it client-side.
+A separate `NekoTrace.Cli` project, and a **thin HTTP client** — no embedded analysis engine. NekoTrace is local and cheap to run, so repeated calls to it beat downloading a trace and analysing it client-side. The binary is `NekoTrace.Cli`; `System.CommandLine` parses it, which is what buys the `--help` below and the completion and value validation with it.
 
-`--file foo.json.gz` works by POSTing to the existing `api/trace-files` upload and then querying normally, which gives saved traces the full feature set for no duplicated code and no `NekoTrace.Core` extraction.
+Six subcommands, one per endpoint: `traces`, `summary`, `profile`, `tree`, `span`, `search`. Options are the MCP parameter names in kebab case, carrying the same descriptions, and each maps to one query parameter — including the two the trace viewer spells in PascalCase, `HiddenSpanNames` and `HiddenSpanIds`, so a URL copied out of the UI still transfers. `--server` (or `NEKOTRACE_URL`), `--format` and `--file` are recursive, so they work in front of any subcommand.
 
-Adding the project means a new publish profile in `Publish.ps1` and a new artifact in the release workflow — see [build-and-release.md](build-and-release.md).
+**`--help` is the interface.** What reads it is as likely to be an agent as a person, and neither has anything else to go on, so the descriptions say what a thing is for and what to reach for next rather than restating the flag name. That is why the CLI does not append MCP's "Next:" hint lines to its output: standard output belongs to the answer and is going to be piped somewhere, and the guidance belongs where it can be read before the call rather than after it.
+
+Two things are checked in the CLI rather than passed through, because the filter parsers drop what they cannot read instead of erroring — which turns a typo into a wider query with plausible looking results. `--kind` is matched against the five span kinds, and the timestamps are parsed and normalised to `…Z` before sending, which also pins down what a time with no offset on it means.
+
+`--file foo.json.gz` works by POSTing to the existing `api/trace-files` upload and then querying normally, which gives saved traces the full feature set for no duplicated code and no `NekoTrace.Core` extraction. For that to be one command rather than two, the upload has to say which trace it ingested: it answers with the ids when the request carries `Accept: application/json`, and keeps its 204 otherwise. The 204 is not vestigial — the Home page posts that form straight from the browser, so the response is a navigation, and any body at all would take the reader off the app. No browser asks for JSON on a form post.
+
+Exit codes are 0, 1 for a request the server refused or a command line that would not parse, and 2 for nothing answering at all — which is nearly always a NekoTrace that is not running, so it gets its own code and says so.
+
+The CLI ships *inside* the server's artifact rather than as its own download — see [build-and-release.md](build-and-release.md). That is also what lets the MCP server hand out its absolute path. `McpInstructions` puts it in the server instructions, which a client shows the model once at connection: an MCP caller therefore learns the CLI exists *before* doing the work another way, which is the only time it is any use. The path is checked for rather than assumed, so a source build or a container without it advertises nothing rather than a path that is not there.
+
+That is the one place the CLI is advertised. Not a tool description, which is per-tool and repeated, and not appended to tool output, which would spend tokens on every call to say something that only needs saying once.
 
 ## Code layout
 

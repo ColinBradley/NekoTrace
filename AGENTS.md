@@ -13,6 +13,12 @@ dotnet run --project NekoTrace.Web/NekoTrace.Web.csproj
 Running serves the UI on <http://localhost:8347> and listens for OTLP on 4317 (gRPC) / 4318 (HTTP).
 
 ```powershell
+dotnet run --project NekoTrace.Cli/NekoTrace.Cli.csproj -- --help
+```
+
+The CLI needs the web app already running, since all it does is call it. `NekoTrace.Cli <command> --file TestTraces/whatever.json.gz` uploads a saved trace and queries it in one go, which is the quickest way to exercise the read API against real data.
+
+```powershell
 dotnet test NekoTrace.slnx
 ```
 
@@ -24,7 +30,9 @@ TypeScript under `NekoTrace.Web/scripts/` is compiled as part of `dotnet build`;
 
 ## Architecture
 
-Two projects: `NekoTrace.Web`, and `NekoTrace.Tests` covering it. The app itself is an in-memory OpenTelemetry collector plus a Blazor Server UI for browsing what it collected. No database, no external dependencies.
+Three projects: `NekoTrace.Web`, `NekoTrace.Cli` and `NekoTrace.Tests` covering both. The app itself is an in-memory OpenTelemetry collector plus a Blazor Server UI for browsing what it collected. No database, no external dependencies.
+
+`NekoTrace.Cli` builds `NekoTrace.Cli`, a thin HTTP client over the web app's read API — it references nothing of `NekoTrace.Web` and analyses nothing itself, so a change to the analysis engine reaches it without being touched. See [docs/ai-access.md](docs/ai-access.md).
 
 **Two web hosts, one process.** `Program.cs` builds *two* independent `WebApplication`s on separate `Task`s:
 

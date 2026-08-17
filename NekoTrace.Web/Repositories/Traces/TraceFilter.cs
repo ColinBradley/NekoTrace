@@ -146,6 +146,17 @@ public sealed record TraceFilter
         return false;
     }
 
+    /// <summary>
+    /// Reads a filter out of a query string.
+    /// </summary>
+    /// <remarks>
+    /// Every value is parsed with the invariant culture, and times with no offset of their own are read as
+    /// UTC. None of the three callers — <c>GET /api/traces</c>, <c>TraceIngestFilter</c> and
+    /// <c>TraceSaveFilter</c> — has a browser to ask, so the host's culture and zone are the only other
+    /// candidates and both make the same string mean different things on different machines. The UI does not
+    /// come through here: it builds a filter directly through <c>BrowserTimeZone.ParseInputToLocal</c>, which
+    /// is where the viewer's zone belongs. See <c>docs/localization.md</c>.
+    /// </remarks>
     public static TraceFilter Parse(string? queryString)
     {
         if (string.IsNullOrWhiteSpace(queryString))
@@ -163,7 +174,7 @@ public sealed record TraceFilter
         var filter = new TraceFilter();
 
         if (query.TryGetValue("SpansMinimum", out var spansMinimumValue)
-            && int.TryParse(spansMinimumValue.FirstOrDefault(), out var spansMinimum)
+            && int.TryParse(spansMinimumValue.FirstOrDefault(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var spansMinimum)
             && spansMinimum > 0)
         {
             filter = filter with { SpansMinimum = spansMinimum };
@@ -235,17 +246,26 @@ public sealed record TraceFilter
         }
 
         if (query.TryGetValue("StartTime", out var startTimeValue)
-            && DateTimeOffset.TryParse(startTimeValue.FirstOrDefault(), out var startTime))
+            && TryParseTimestamp(startTimeValue.FirstOrDefault(), out var startTime))
         {
             filter = filter with { StartTime = startTime };
         }
 
         if (query.TryGetValue("EndTime", out var endTimeValue)
-            && DateTimeOffset.TryParse(endTimeValue.FirstOrDefault(), out var endTime))
+            && TryParseTimestamp(endTimeValue.FirstOrDefault(), out var endTime))
         {
             filter = filter with { EndTime = endTime };
         }
 
         return filter;
     }
+
+    /// <summary>A time with no offset of its own is UTC, not the host machine's idea of local.</summary>
+    private static bool TryParseTimestamp(string? value, out DateTimeOffset parsed) =>
+        DateTimeOffset.TryParse(
+            value,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out parsed
+        );
 }

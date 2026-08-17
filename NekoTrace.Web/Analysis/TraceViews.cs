@@ -42,7 +42,11 @@ public sealed class TraceViews
             })
             .ToImmutableArray();
 
-        return new TraceView(entries, () => RenderTraceList(entries));
+        return new TraceView(
+            entries,
+            () => RenderTraceList(entries),
+            () => FlatFormatter.Traces(entries)
+        );
     }
 
     private static string RenderTraceList(ImmutableArray<TraceListEntry> entries)
@@ -114,7 +118,16 @@ public sealed class TraceViews
 
         var profile = TraceProfile.Build(SpanTree.Build(trace.Spans));
 
-        return new TraceView(profile, () => TextFormatter.Profile(profile, minimumSamplesForSpread));
+        // The flattened rows are the model, not the nested tree: serialising the tree recursed past
+        // System.Text.Json's depth limit on the 230,313 span trace and answered a 500 with half a document
+        // already written. See ProfileRow. Text still renders from the tree, where the nesting is the point.
+        var rows = TraceProfile.Flatten(profile);
+
+        return new TraceView(
+            rows,
+            () => TextFormatter.Profile(profile, minimumSamplesForSpread),
+            () => FlatFormatter.Profile(rows)
+        );
     }
 
     internal TraceView? Tree(
@@ -133,25 +146,48 @@ public sealed class TraceViews
         var tree = SpanTree.Build(trace.Spans);
 
         // A span id given as a prefix has to become a whole one before the tree is built, since the tree
-        // looks its starting point up by exact id.
-        if (options.RootSpanId is { } prefix)
-        {
-            options = options with { RootSpanId = ResolveSpanId(trace, prefix) ?? prefix };
-        }
+        // looks its starting point up by exact id. Into its own local rather than back over the parameter,
+        // because the flat rendering below closes over it and has to see the resolved one.
+        var resolved = options.RootSpanId is { } prefix
+            ? options with { RootSpanId = ResolveSpanId(trace, prefix) ?? prefix }
+            : options;
 
-        var result = TreeView.Build(tree, options);
+        var result = TreeView.Build(tree, resolved);
+
+        // Shared between the two renderings but built by neither unless it runs, which on the 230,313 span
+        // trace is the difference between one pass over every id and none.
+        var ids = new Lazy<SpanIdShortener>(
+            () => render.ShortenSpanIds
+                ? SpanIdShortener.For(trace.Spans.Select(span => span.Id))
+                : SpanIdShortener.None,
+            LazyThreadSafetyMode.None
+        );
+
+        var attributes = new Lazy<AttributeSummary>(
+            () => AttributeSummary.Build(trace.Spans),
+            LazyThreadSafetyMode.None
+        );
 
         return new TraceView(
             result,
             () => TextFormatter.Tree(
                 result,
-                render.ShortenSpanIds
-                    ? SpanIdShortener.For(trace.Spans.Select(span => span.Id))
-                    : SpanIdShortener.None,
-                AttributeSummary.Build(trace.Spans),
+                ids.Value,
+                attributes.Value,
                 selector,
                 render,
                 minimumSamplesForSpread
+            ),
+            // Its own arrangement of the same SpanTree, with collapsing off: the flat format promises one line
+            // per span, and a caller who left collapseThreshold at its default would otherwise get a format
+            // that silently dropped most of the trace into ×N summaries it has nowhere to print. Building it
+            // twice costs one more pass over an already built tree, and only when flat is the format asked for.
+            () => FlatFormatter.Tree(
+                TreeView.Build(tree, resolved with { CollapseThreshold = 0 }),
+                ids.Value,
+                attributes.Value,
+                selector,
+                render
             )
         );
     }
@@ -215,15 +251,28 @@ public sealed class TraceViews
         return text.ToString();
     }
 
-    internal TraceView SearchSpans(SpanQuery query, string? traceId, int limit)
+    /// <param name="limit">
+    /// How many matches to print. It bounds neither the scan nor the hoisting, so <c>limit=1</c> still
+    /// answers "how many are there and what do they all share" over the whole result.
+    /// </param>
+    /// <param name="selector">Which attribute keys the printed matches carry.</param>
+    internal TraceView SearchSpans(
+        SpanQuery query,
+        string? traceId,
+        int limit,
+        AttributeSelector selector,
+        SpanRenderOptions render
+    )
     {
         var traces = traceId is null
             ? mTraces.Traces.OrderByDescending(trace => trace.Start).AsEnumerable()
             : mTraces.TryGetTrace(traceId) is { } single ? [single] : [];
 
-        var matches = new List<(TraceItem Trace, SpanData Span)>();
-        var truncated = false;
+        var matched = new List<SpanData>();
+        var page = new List<SpanSearchResult>();
 
+        // Scanned to the end rather than stopping at the limit, because "50, and there may be more" does not
+        // answer how many there are. Costs one predicate call per span the limit would have skipped.
         foreach (var trace in traces)
         {
             foreach (var span in trace.Spans)
@@ -233,38 +282,50 @@ public sealed class TraceViews
                     continue;
                 }
 
-                if (matches.Count == limit)
+                matched.Add(span);
+
+                if (page.Count < limit)
                 {
-                    truncated = true;
-
-                    break;
+                    page.Add(new SpanSearchResult() { TraceId = trace.Id, Span = span });
                 }
-
-                matches.Add((trace, span));
-            }
-
-            if (truncated)
-            {
-                break;
             }
         }
 
-        var results = matches
-            .Select(match => new SpanSearchResult() { TraceId = match.Trace.Id, Span = match.Span })
-            .ToImmutableArray();
+        var results = page.ToImmutableArray();
 
-        return new TraceView(results, () => RenderSearchResults(results, truncated, limit));
+        // Across every match, not the printed page: hoisting over the page would make the block's meaning
+        // depend on `limit`, which is only a rendering knob. Not deferred, since all three formats use it.
+        var attributes = AttributeSummary.Build(matched);
+
+        var model = new SpanSearchResults()
+        {
+            Total = matched.Count,
+            Common = attributes.Common,
+            Matches = results,
+        };
+
+        return new TraceView(
+            model,
+            () => RenderSearchResults(results, matched.Count, attributes, selector, render),
+            () => FlatFormatter.SearchResults(results, matched.Count, attributes, selector, render)
+        );
     }
 
     private static string RenderSearchResults(
         ImmutableArray<SpanSearchResult> results,
-        bool truncated,
-        int limit
+        int total,
+        AttributeSummary attributes,
+        AttributeSelector selector,
+        SpanRenderOptions render
     )
     {
         var text = new StringBuilder();
 
-        text.AppendLine("# trace id  span id  duration  name");
+        text.AppendLine("# trace id  span id  duration  name  attributes");
+
+        // Above the matches, matching the flat rendering: this block is often the answer, and a reader should
+        // not have to get past every row to reach it.
+        TextFormatter.AppendCommonAttributes(text, attributes, selector, render);
 
         foreach (var result in results)
         {
@@ -277,21 +338,34 @@ public sealed class TraceViews
                 text.Append("  ERROR");
             }
 
+            TextFormatter.AppendAttributes(text, result.Span, attributes, selector, render);
+
             text.AppendLine();
         }
 
-        if (results.IsEmpty)
+        text.AppendLine();
+
+        if (render.IncludeAttributes && selector.Explain() is { } explanation)
         {
-            text.AppendLine("(nothing matched)");
+            text.AppendLine(explanation);
         }
 
-        if (truncated)
-        {
-            text.Append("stopped at ").Append(Units.Count(limit))
-                .AppendLine(" matches — narrow the query or raise limit=.");
-        }
+        AppendMatchCount(text, results.Length, total, string.Empty);
 
         return text.ToString();
+    }
+
+    /// <summary>The total, always, and what fraction of it was printed when the limit cut it short.</summary>
+    internal static void AppendMatchCount(StringBuilder text, int shown, int total, string prefix)
+    {
+        text.Append(prefix).Append(Units.Count(total)).Append(total is 1 ? " match" : " matches");
+
+        if (shown < total)
+        {
+            text.Append(", showing ").Append(Units.Count(shown)).Append(" — raise limit for the rest");
+        }
+
+        text.AppendLine(".");
     }
 
     /// <summary>The one span id starting with <paramref name="prefix"/>, or null when it is not exactly one.</summary>

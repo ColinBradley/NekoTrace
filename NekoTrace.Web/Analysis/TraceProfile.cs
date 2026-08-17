@@ -14,6 +14,13 @@ using System.Collections.Immutable;
 /// </remarks>
 internal static class TraceProfile
 {
+    /// <summary>The separator joining names into a <see cref="ProfileRow.Path"/>.</summary>
+    /// <remarks>
+    /// <c>;</c> because that is what Brendan Gregg's collapsed-stack format uses, so the path column feeds a
+    /// flamegraph directly. <c>/</c> would collide — it appears in every Orleans grain name.
+    /// </remarks>
+    private const char PATH_SEPARATOR = ';';
+
     public static ImmutableArray<ProfileNode> Build(SpanTree tree) => Build(tree.Roots);
 
     /// <param name="include">
@@ -144,5 +151,55 @@ internal static class TraceProfile
                 Children = [.. children.OrderByDescending(child => child.Durations.TotalMs)],
             };
         }
+    }
+
+    /// <summary>
+    /// The tree as a depth first list, each node carrying the path that got to it.
+    /// </summary>
+    /// <remarks>
+    /// Everything here walks a tree with an explicit stack because trace depth is not ours to bound; this is
+    /// the same rule applied to handing one over, since serialising a nested tree is bounded by the
+    /// serialiser's depth limit. <see cref="Formatting.FlatFormatter.Profile"/> renders these same rows, so
+    /// the flat output and the JSON model cannot disagree about what a profile contains.
+    /// </remarks>
+    public static ImmutableArray<ProfileRow> Flatten(ImmutableArray<ProfileNode> roots)
+    {
+        var rows = ImmutableArray.CreateBuilder<ProfileRow>();
+        var stack = new Stack<(ProfileNode Node, int Depth, string Path)>();
+
+        for (var index = roots.Length - 1; index >= 0; index--)
+        {
+            stack.Push((roots[index], 0, roots[index].Name));
+        }
+
+        while (stack.Count > 0)
+        {
+            var (node, depth, path) = stack.Pop();
+
+            rows.Add(
+                new ProfileRow()
+                {
+                    Path = path,
+                    Depth = depth,
+                    Name = node.Name,
+                    Count = node.Count,
+                    TotalMs = node.Durations.TotalMs,
+                    SelfMs = node.SelfMs,
+                    MedianMs = node.Durations.MedianMs,
+                    P95Ms = node.Durations.P95Ms,
+                    MaxMs = node.Durations.MaxMs,
+                    ErrorCount = node.ErrorCount,
+                    DistinctChildShapes = node.DistinctChildShapes,
+                    SlowestSpanId = node.SlowestSpanId,
+                }
+            );
+
+            for (var index = node.Children.Length - 1; index >= 0; index--)
+            {
+                stack.Push((node.Children[index], depth + 1, path + PATH_SEPARATOR + node.Children[index].Name));
+            }
+        }
+
+        return rows.ToImmutable();
     }
 }

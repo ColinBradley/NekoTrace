@@ -30,14 +30,17 @@ jobs:
         run: |
           mkdir publish
           RELEASE_FILE_PREFIX="NekoTrace-${{ steps.NekoTraceWebVersion.outputs.version }}-"
+          # NekoTrace.Cli rides along inside each of these: NekoTrace.Web's PublishNekoTraceCli target
+          # publishes it into the server's output, matching its runtime and self-containedness. Output lands
+          # in artifacts/ at the root, not under NekoTrace.Web/bin, because two projects contribute to it.
           for publish_name in Portable Linux64SelfContained Win64 Win64SelfContained;
           do
             dotnet publish ./NekoTrace.Web/NekoTrace.Web.csproj -p:PublishProfile=$publish_name
-            cd ./NekoTrace.Web/bin/Release/net10.0/publish/$publish_name
+            cd ./artifacts/$publish_name
             zip_name=${RELEASE_FILE_PREFIX}${publish_name}.zip
             zip -r $zip_name ./*
-            mv $zip_name ../../../../../../publish/$zip_name
-            cd ../../../../../..
+            mv $zip_name ../../publish/$zip_name
+            cd ../..
           done
           gh release create --generate-notes --fail-on-no-commits v${{ steps.NekoTraceWebVersion.outputs.version }} ./publish/*
 

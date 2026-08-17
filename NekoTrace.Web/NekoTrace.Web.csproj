@@ -6,7 +6,6 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <UserSecretsId>389d3aa4-6bfc-45e4-90b8-6cf0cd0ea7a2</UserSecretsId>
         <PublishIISAssets>false</PublishIISAssets>
-        <Version>0.3.2</Version>
     </PropertyGroup>
 
     <ItemGroup>
@@ -27,6 +26,26 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
     </ItemGroup>
+
+    <!--
+      Publishes NekoTrace.Cli into this project's publish output so the two ship together, matching the
+      runtime and self-containedness of whichever profile is running. See docs/build-and-release.md.
+
+      Conditional because the Dockerfile copies only NekoTrace.Web into its build stage; the image carries
+      no CLI by design.
+    -->
+    <Target Name="PublishNekoTraceCli"
+            AfterTargets="Publish"
+            Condition="Exists('$(MSBuildProjectDirectory)\..\NekoTrace.Cli\NekoTrace.Cli.csproj')">
+        <PropertyGroup>
+            <!-- Absolute, or it resolves against the CLI project's directory. -->
+            <NekoTraceCliPublishDir>$([System.IO.Path]::GetFullPath('$(PublishDir)', '$(MSBuildProjectDirectory)'))</NekoTraceCliPublishDir>
+        </PropertyGroup>
+        <MSBuild Projects="..\NekoTrace.Cli\NekoTrace.Cli.csproj"
+                 Targets="Publish"
+                 Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishSingleFile=$(PublishSingleFile);PublishReadyToRun=$(PublishReadyToRun);PublishDir=$(NekoTraceCliPublishDir)" />
+        <Message Importance="high" Text="NekoTrace.Cli published to $(NekoTraceCliPublishDir)" />
+    </Target>
 
     <ItemGroup>
         <Content Update="appsettings.Development.json">
