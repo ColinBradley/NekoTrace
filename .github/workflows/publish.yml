@@ -19,10 +19,11 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - uses: kzrnm/get-net-sdk-project-versions-action@v2
+      # Ask MSBuild rather than parsing the csproj: <Version> lives in Directory.Build.props, which only an
+      # evaluation resolves. A single -getProperty prints the bare value.
+      - name: Read version
         id: NekoTraceWebVersion
-        with:
-          proj-path: ./NekoTrace.Web/NekoTrace.Web.csproj
+        run: echo "version=$(dotnet msbuild ./NekoTrace.Web/NekoTrace.Web.csproj -getProperty:Version)" >> $GITHUB_OUTPUT
 
       - name: Publish
         env:
