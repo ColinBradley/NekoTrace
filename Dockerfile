@@ -16,7 +16,8 @@ RUN apt-get update && \
 
 WORKDIR /src
 COPY ["NekoTrace.Web/NekoTrace.Web.csproj", "NekoTrace.Web/"]
-COPY "Directory.Packages.props" .
+# Directory.Build.props carries <Version> and the analyzer enforcement, and MSBuild only finds it if it is in the build context.
+COPY "Directory.Packages.props" "Directory.Build.props" .
 RUN dotnet restore "./NekoTrace.Web/NekoTrace.Web.csproj"
 COPY "NekoTrace.Web/" "NekoTrace.Web/"
 WORKDIR "/src/NekoTrace.Web"
