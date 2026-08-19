@@ -24,6 +24,7 @@ Console.WriteLine($"Config path: {configFilePath}\n");
 
 var webAppBuilder = WebApplication.CreateBuilder(args);
 webAppBuilder.Configuration.AddJsonFile(configFilePath, optional: true, reloadOnChange: true);
+webAppBuilder.Configuration.AddUserSecrets<Program>(optional: true, reloadOnChange: true);
 
 var nekoTraceConfigurationSection = webAppBuilder.Configuration.GetSection("NekoTrace");
 webAppBuilder.Services.Configure<NekoTraceConfiguration>(nekoTraceConfigurationSection);
