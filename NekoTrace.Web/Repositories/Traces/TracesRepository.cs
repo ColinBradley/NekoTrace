@@ -138,12 +138,13 @@ public sealed class TracesRepository : IDisposable
             mLastTraceIngestFilterRaw = config.TraceIngestFilter;
         }
 
-        var filter = mParsedTraceIngestFilter;
+        var rejectedSpans = 0;
         foreach (var trace in touchedTraces)
         {
-            if (filter.IsRejected(trace))
+            if (mParsedTraceIngestFilter.IsRejected(trace))
             {
                 this.RemoveTrace(trace);
+                rejectedSpans += trace.Spans.Count;
             }
         }
 
@@ -151,7 +152,7 @@ public sealed class TracesRepository : IDisposable
         {
             PartialSuccess = new ExportTracePartialSuccess()
             {
-                RejectedSpans = 0,
+                RejectedSpans = rejectedSpans,
                 ErrorMessage = string.Empty,
             },
         };
