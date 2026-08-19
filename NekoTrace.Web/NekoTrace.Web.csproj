@@ -28,6 +28,25 @@
     </ItemGroup>
 
     <!--
+      Not referenced in code: this is what makes restore aware the CLI project exists. The
+      PublishNekoTraceCli target below reaches it through an MSBuild task, which runs long after restore
+      has settled what it is restoring, so without this the CLI has no assets file and a publish from a
+      clean checkout fails with NETSDK1004.
+
+      SkipGetTargetFrameworkProperties keeps this a restore-time edge and nothing more. Without it the
+      self-contained profiles fail with NETSDK1150, over a reference that carries nothing at build time
+      anyway; the target below publishes the CLI with the profile's own SelfContained value.
+
+      Conditional for the same reason the target is.
+    -->
+    <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\NekoTrace.Cli\NekoTrace.Cli.csproj')">
+        <ProjectReference Include="..\NekoTrace.Cli\NekoTrace.Cli.csproj"
+                          ReferenceOutputAssembly="false"
+                          SkipGetTargetFrameworkProperties="true"
+                          Private="false" />
+    </ItemGroup>
+
+    <!--
       Publishes NekoTrace.Cli into this project's publish output so the two ship together, matching the
       runtime and self-containedness of whichever profile is running. See docs/build-and-release.md.
 
@@ -43,6 +62,7 @@
         </PropertyGroup>
         <MSBuild Projects="..\NekoTrace.Cli\NekoTrace.Cli.csproj"
                  Targets="Publish"
+                 RemoveProperties="PublishProfile"
                  Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishSingleFile=$(PublishSingleFile);PublishReadyToRun=$(PublishReadyToRun);PublishDir=$(NekoTraceCliPublishDir)" />
         <Message Importance="high" Text="NekoTrace.Cli published to $(NekoTraceCliPublishDir)" />
     </Target>
