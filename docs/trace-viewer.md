@@ -27,3 +27,5 @@ Interaction (documented for users in the README): drag to pan, wheel to zoom, `A
 ## Build
 
 `Microsoft.TypeScript.MSBuild` compiles `scripts/**` to `wwwroot/js/` during `dotnet build`, per `tsconfig.json` (strict, ESNext modules, source maps). The output directory is git-ignored; never edit or commit the generated JS. On non-Windows this needs Node.js on the PATH — that is why the Dockerfile installs it in the build stage.
+
+Three of those compiler options keep these files runnable by Node as they are, without a build — handy for driving the renderer outside a browser. Relative imports name the `.ts` file, which is what Node resolves, and `rewriteRelativeImportExtensions` turns them into `.js` in the output, which is what the browser resolves. `erasableSyntaxOnly` bans anything Node would have to compile rather than strip — no enums, no parameter properties. `types.ts` carries the note about what that means for `SpanKind` and `StatusCode`.

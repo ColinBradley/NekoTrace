@@ -18,8 +18,8 @@ export interface SpanData {
 }
 
 /*
- * Objects rather than enums, because an enum is the one TypeScript construct here that has to be
- * compiled rather than merely stripped, and Node runs these files as they are to test them.
+ * Objects rather than enums, because an enum is the one construct here that has to be compiled rather
+ * than merely stripped, and stripping is all Node does when it runs these files without a build.
  * `erasableSyntaxOnly` in tsconfig.json is what keeps it that way. Using them reads the same.
  */
 
