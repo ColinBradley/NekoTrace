@@ -26,6 +26,9 @@ public sealed partial class TraceViewComponent : IDisposable
     public bool? GroupSpans { get; set; }
 
     [SupplyParameterFromQuery]
+    public bool? AdjustClockSkew { get; set; }
+
+    [SupplyParameterFromQuery]
     public string? SelectedSpanId { get; set; }
 
     [SupplyParameterFromQuery]
@@ -53,7 +56,10 @@ public sealed partial class TraceViewComponent : IDisposable
 
     private IJSObjectReference? TraceModule { get; set; }
 
-    private TraceItem? Trace => this.TraceId is null ? null : this.TracesRepo.TryGetTrace(this.TraceId);
+    private TraceItem? Trace =>
+        this.TraceId is null
+            ? null
+            : this.TracesRepo.TryGetTrace(this.TraceId);
 
     private SpanData? SelectedSpan =>
         this.SelectedSpanId is not null
@@ -61,10 +67,12 @@ public sealed partial class TraceViewComponent : IDisposable
             ? span
             : null;
 
-    private string EffectiveSpanColorSelector => this.SpanColorSelector ?? DEFAULT_SPAN_COLOR_SELECTOR;
+    private string EffectiveSpanColorSelector =>
+        this.SpanColorSelector ?? DEFAULT_SPAN_COLOR_SELECTOR;
 
     private ImmutableHashSet<string> HiddenAttributeNameSet =>
-        SplitFilterValue(this.HiddenAttributeNames).ToImmutableHashSet(StringComparer.Ordinal);
+        SplitFilterValue(this.HiddenAttributeNames)
+            .ToImmutableHashSet(StringComparer.Ordinal);
 
     private static string[] SplitFilterValue(string? value) =>
         value?.Split('|', StringSplitOptions.RemoveEmptyEntries) ?? [];
@@ -72,12 +80,18 @@ public sealed partial class TraceViewComponent : IDisposable
     /// <summary>
     /// Builds a link to the current page with <paramref name="newValue"/> added to a pipe separated query parameter.
     /// </summary>
-    private string GetUriWithAddedFilterValue(string parameterName, string? currentValue, string newValue) =>
+    private string GetUriWithAddedFilterValue(
+        string parameterName,
+        string? currentValue,
+        string newValue
+    ) =>
         this.Navigation.GetUriWithQueryParameter(
             parameterName,
             string.Join(
                 '|',
-                SplitFilterValue(currentValue).Append(newValue).Distinct(StringComparer.Ordinal)
+                SplitFilterValue(currentValue)
+                    .Append(newValue)
+                    .Distinct(StringComparer.Ordinal)
             )
         );
 
@@ -149,7 +163,10 @@ public sealed partial class TraceViewComponent : IDisposable
     public void SetSelectedSpanId(string? spanId)
     {
         this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(nameof(this.SelectedSpanId), spanId),
+            this.Navigation.GetUriWithQueryParameter(
+                nameof(this.SelectedSpanId),
+                spanId
+            ),
             replace: true
         );
     }
@@ -157,7 +174,21 @@ public sealed partial class TraceViewComponent : IDisposable
     private void GroupSpans_Change(ChangeEventArgs e)
     {
         this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(nameof(this.GroupSpans), (e.Value as bool? ?? false) ? null : false),
+            this.Navigation.GetUriWithQueryParameter(
+                nameof(this.GroupSpans),
+                (e.Value as bool? ?? false) ? null : false
+            ),
+            replace: true
+        );
+    }
+
+    private void AdjustClockSkew_Change(ChangeEventArgs e)
+    {
+        this.Navigation.NavigateTo(
+            this.Navigation.GetUriWithQueryParameter(
+                nameof(this.AdjustClockSkew),
+                (e.Value as bool? ?? false) ? true : null
+            ),
             replace: true
         );
     }

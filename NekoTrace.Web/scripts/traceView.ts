@@ -27,6 +27,10 @@ const RESIZE_GRAB_WIDTH = () => 10 * devicePixelRatioCache;
 
 const SPAN_COLOR_SELECTOR_ATTRIBUTE_NAME = "data-span-color-selector";
 
+// Most specific first: one service can be running as several instances, each with its own clock.
+// These are the OpenTelemetry names for it, but what identifies a clock is up to whoever is exporting.
+const DEFAULT_CLOCK_GROUP_ATTRIBUTE_NAMES = ["service.instance.id", "service.name"];
+
 // Booo, browsers
 const originalHistoryPushState = history.pushState;
 history.pushState = function pushState(...a) {
@@ -82,6 +86,11 @@ class TraceRenderer {
     private hiddenSpanNames = new Set<string>();
     private hiddenSpanIds = new Set<string>();
     private groupSpans = true;
+    private adjustClockSkew = false;
+    private clockGroupAttributeNames = DEFAULT_CLOCK_GROUP_ATTRIBUTE_NAMES;
+
+    /** The shift applied to each clock, keyed by SpanItem.clockGroup. Undefined until it is solved for. */
+    private clockOffsetsByGroup?: Map<string, number>;
 
     public constructor(
         private readonly canvasElement: HTMLCanvasElement
@@ -155,50 +164,35 @@ class TraceRenderer {
     ];
 
     public setSpans(spans: SpanData[]) {
-        this.spans = spans
-            .map(s => (
-                {
-                    ...s,
-                    children: [],
-                    rowIndex: 0,
-                    childrenDepth: 0,
-                    absolutePixelPositionX: 0,
-                    absolutePixelPositionY: 0,
-                    pixelWidth: 0,
-                    color: "red",
-                }
-            ))
-            .sort((a, b) => a.startTimeMs - b.startTimeMs);
+        this.spans = spans.map((s, index) => (
+            {
+                ...s,
+                children: [],
+                rowIndex: 0,
+                childrenDepth: 0,
+                absolutePixelPositionX: 0,
+                absolutePixelPositionY: 0,
+                pixelWidth: 0,
+                sourceIndex: index,
+                clockGroup: "",
+                adjustedStartTimeMs: s.startTimeMs,
+                adjustedEndTimeMs: s.endTimeMs,
+                color: "red",
+            }
+        ));
 
         const spansById = new Map(this.spans.map(s => [s.id, s]));
 
-        let startMs = Number.MAX_VALUE;
-        let endMs = Number.MIN_VALUE;
-
         for (const span of this.spans) {
-            if (span.startTimeMs < startMs) {
-                startMs = span.startTimeMs;
-            }
-
-            if (span.endTimeMs > endMs) {
-                endMs = span.endTimeMs;
-            }
-
             if (span.parentSpanId === undefined) {
                 continue;
             }
 
             span.parent = spansById.get(span.parentSpanId);
-
-            if (span.parent !== undefined) {
-                span.earlierSibling = span.parent.children[span.parent.children.length - 1];
-                span.parent.children.push(span);
-            }
         }
 
-        this.startMs = startMs;
-        this.durationMs = endMs - startMs;
-
+        this.updateClockGroups();
+        this.updateSpanTimes();
         this.arrangeSpans();
         this.updateSpanLocations();
         this.updateSpanColors();
@@ -374,40 +368,55 @@ class TraceRenderer {
     private readonly document_change = () => {
         devicePixelRatioCache = window.devicePixelRatio;
 
+        // The sizes derive from the pixel ratio, so redo the layout whether or not an option moved.
         // Wait for the URL to update
-        setTimeout(() => {
-            this.loadOptions();
-            this.arrangeSpans();
-            this.render();
-        }, 10);
+        setTimeout(() => this.optionsChanged(true), 10);
     };
 
     private readonly window_urlChanged = () => {
+        this.optionsChanged(false);
+    };
+
+    private optionsChanged(isRearrangeForced: boolean) {
+        const originalGroupSpans = this.groupSpans;
+        const originalAdjustClockSkew = this.adjustClockSkew;
         const originalHiddenSpanNames = this.hiddenSpanNames;
         const originalHiddenSpanIds = this.hiddenSpanIds;
 
         this.loadOptions();
 
-        if (originalHiddenSpanNames.size === this.hiddenSpanNames.size
-            && originalHiddenSpanIds.size === this.hiddenSpanIds.size) {
+        const isTimingChanged = this.adjustClockSkew !== originalAdjustClockSkew;
+
+        // The URL also changes on hover, so leave promptly when nothing that shapes the view moved.
+        if (!isTimingChanged
+            && !isRearrangeForced
+            && this.groupSpans === originalGroupSpans
+            && isSameSet(originalHiddenSpanNames, this.hiddenSpanNames)
+            && isSameSet(originalHiddenSpanIds, this.hiddenSpanIds)) {
             return;
+        }
+
+        if (isTimingChanged) {
+            this.updateSpanTimes();
         }
 
         this.arrangeSpans();
         this.updateSpanLocations();
         this.render();
-    };
+    }
 
     private loadOptions() {
         const searchParams = new URL(document.URL).searchParams;
 
         this.groupSpans = searchParams.get("GroupSpans")?.toLowerCase() !== "false";
+        this.adjustClockSkew = searchParams.get("AdjustClockSkew")?.toLowerCase() === "true";
         this.hiddenSpanNames = new Set(searchParams.get("HiddenSpanNames")?.split("|") ?? []);
         this.hiddenSpanIds = new Set(searchParams.get("HiddenSpanIds")?.split("|") ?? []);
     }
 
     private setHotSpan() {
-        const hotRowIndex = Math.floor((this.pointerY - this.top + (this.spans[0]?.absolutePixelPositionY ?? 0)) / SPAN_HEIGHT_TOTAL());
+        // The inverse of the absolutePixelPositionY a row is drawn at.
+        const hotRowIndex = Math.floor((this.pointerY - this.top) / SPAN_ROW_OFFSET());
 
         this.hotSpan =
             (this.spansByRow[hotRowIndex] ?? [])
@@ -433,10 +442,15 @@ class TraceRenderer {
     private arrangeSpans() {
         this.spansByRow = [];
 
+        // reset for fresh arrange
+        for (const span of this.spans) {
+            span.rowIndex = 0;
+            span.childrenDepth = 0;
+        }
+
         let spansToRemove = (this.hiddenSpanNames.size > 0 || this.hiddenSpanIds.size > 0)
             ? new Set(
                 this.spans
-                    .filter(s => this.hiddenSpanNames.has(s.name) || this.hiddenSpanIds.has(s.id))
                     .filter(s => this.hiddenSpanNames.has(s.name) || this.hiddenSpanIds.has(s.id))
                     .flatMap(s => [...getSpansDepthFirst(s)])
             )
@@ -458,7 +472,7 @@ class TraceRenderer {
 
             for (const span of spansDepthFirst) {
                 let isInserted = false;
-                const isInSiblingSpan = (span.earlierSibling?.endTimeMs ?? 0) > span.startTimeMs;
+                const isInSiblingSpan = (span.earlierSibling?.adjustedEndTimeMs ?? 0) > span.adjustedStartTimeMs;
 
                 let rowIndex = isInSiblingSpan
                     ? span.earlierSibling!.rowIndex + span.earlierSibling!.childrenDepth + 1
@@ -466,7 +480,7 @@ class TraceRenderer {
 
                 for (; rowIndex < this.spansByRow.length; rowIndex++) {
                     const rowSpans = this.spansByRow[rowIndex];
-                    if (rowSpans[rowSpans.length - 1].endTimeMs > span.startTimeMs) {
+                    if (rowSpans[rowSpans.length - 1].adjustedEndTimeMs > span.adjustedStartTimeMs) {
                         continue;
                     }
 
@@ -490,11 +504,26 @@ class TraceRenderer {
                 }
             }
         } else {
-            for (const span of this.filteredSpans) {
+            const placedSpans = new Set<SpanItem>();
+
+            // A child can start before its parent, so start order is not parents first. Placing the
+            // ancestors on demand is what keeps a span below the one it descends from. Hiding a span
+            // hides its descendants too, so an ancestor of anything filtered in is also filtered in.
+            const placeSpan = (span: SpanItem) => {
+                if (placedSpans.has(span)) {
+                    return;
+                }
+
+                placedSpans.add(span);
+
+                if (span.parent !== undefined) {
+                    placeSpan(span.parent);
+                }
+
                 let isInserted = false;
                 for (let rowIndex = (span.parent?.rowIndex ?? -1) + 1; rowIndex < this.spansByRow.length; rowIndex++) {
                     const rowSpans = this.spansByRow[rowIndex];
-                    if (rowSpans[rowSpans.length - 1].endTimeMs > span.startTimeMs) {
+                    if (rowSpans[rowSpans.length - 1].adjustedEndTimeMs > span.adjustedStartTimeMs) {
                         continue;
                     }
 
@@ -510,6 +539,10 @@ class TraceRenderer {
                 }
 
                 span.absolutePixelPositionY = SPAN_ROW_OFFSET() * span.rowIndex;
+            };
+
+            for (const span of this.filteredSpans) {
+                placeSpan(span);
             }
         }
     }
@@ -727,12 +760,89 @@ class TraceRenderer {
         return this.left + span.absolutePixelPositionX + SPAN_BORDER_WIDTH() - 1;
     }
 
+    /**
+     * Works out which clock each span was timed against. Redo this whenever the attributes naming a
+     * clock change, since the offsets are then answering a different question.
+     */
+    private updateClockGroups() {
+        for (const span of this.spans) {
+            // The attribute name is part of the key, so a fallback can't collide with a real instance id.
+            let clockGroup = "";
+
+            for (const attributeName of this.clockGroupAttributeNames) {
+                const value = span.attributes[attributeName];
+
+                if (value !== undefined) {
+                    clockGroup = attributeName + "=" + value;
+                    break;
+                }
+            }
+
+            span.clockGroup = clockGroup;
+        }
+
+        this.clockOffsetsByGroup = undefined;
+    }
+
+    /**
+     * Applies the clock offsets, or takes them back off, and re-derives everything keyed off span times.
+     */
+    private updateSpanTimes() {
+        // Solved on demand, so a trace nobody adjusts never pays for it.
+        const offsets = this.adjustClockSkew
+            ? this.clockOffsetsByGroup ??= solveClockOffsets(this.spans)
+            : undefined;
+
+        for (const span of this.spans) {
+            const offsetMs = offsets?.get(span.clockGroup) ?? 0;
+
+            span.adjustedStartTimeMs = span.startTimeMs + offsetMs;
+            span.adjustedEndTimeMs = span.endTimeMs + offsetMs;
+        }
+
+        // Spans do share a start time, and a sort is only stable against the order already there, so
+        // without the tiebreak a resort would arrange those ties differently to a first load.
+        this.spans.sort((a, b) =>
+            (a.adjustedStartTimeMs - b.adjustedStartTimeMs) || (a.sourceIndex - b.sourceIndex)
+        );
+
+        // Children are held in start order so that earlierSibling means what it says, and an offset
+        // that moves one sibling past another changes that order.
+        for (const span of this.spans) {
+            span.children.length = 0;
+            span.earlierSibling = undefined;
+        }
+
+        let startMs = Number.MAX_VALUE;
+        let endMs = Number.MIN_VALUE;
+
+        for (const span of this.spans) {
+            if (span.adjustedStartTimeMs < startMs) {
+                startMs = span.adjustedStartTimeMs;
+            }
+
+            if (span.adjustedEndTimeMs > endMs) {
+                endMs = span.adjustedEndTimeMs;
+            }
+
+            if (span.parent === undefined) {
+                continue;
+            }
+
+            span.earlierSibling = span.parent.children[span.parent.children.length - 1];
+            span.parent.children.push(span);
+        }
+
+        this.startMs = startMs;
+        this.durationMs = endMs - startMs;
+    }
+
     private updateSpanLocations() {
         const msToPixels = (this.canvasElement.width / this.durationMs) * this.zoomRatio;
 
         for (const span of this.filteredSpans) {
-            span.absolutePixelPositionX = (span.startTimeMs - this.startMs) * msToPixels;
-            span.pixelWidth = (span.endTimeMs - span.startTimeMs) * msToPixels;
+            span.absolutePixelPositionX = (span.adjustedStartTimeMs - this.startMs) * msToPixels;
+            span.pixelWidth = (span.adjustedEndTimeMs - span.adjustedStartTimeMs) * msToPixels;
         }
     }
 
@@ -794,6 +904,108 @@ function* getSpansDepthFirst(span: SpanItem): Generator<SpanItem, void, unknown>
     }
 }
 
+/**
+ * Separate processes don't share a clock, so a child's recorded start can land before its parent's.
+ * Taking each clock to be off by a constant turns that into one constraint per parent-child edge
+ * crossing two clocks - offset[child] - offset[parent] >= parentStart - childStart - and relaxing them
+ * to a fixpoint is Bellman-Ford. Constraints that contradict each other run out of passes still
+ * unsatisfied, which is why row placement can't assume this worked.
+ */
+function solveClockOffsets(spans: SpanItem[]): Map<string, number> {
+    const offsets = new Map<string, number>();
+
+    for (const span of spans) {
+        if (!offsets.has(span.clockGroup)) {
+            offsets.set(span.clockGroup, 0);
+        }
+    }
+
+    if (offsets.size < 2) {
+        return offsets;
+    }
+
+    // Keyed parent group, then child group; a single string key would need a separator that no
+    // attribute value can contain.
+    const constraintsByParentGroup = new Map<string, Map<string, number>>();
+
+    for (const span of spans) {
+        if (span.parent === undefined) {
+            continue;
+        }
+
+        const parentGroup = span.parent.clockGroup;
+        const childGroup = span.clockGroup;
+
+        if (parentGroup === childGroup) {
+            continue;
+        }
+
+        let constraints = constraintsByParentGroup.get(parentGroup);
+
+        if (constraints === undefined) {
+            constraints = new Map<string, number>();
+            constraintsByParentGroup.set(parentGroup, constraints);
+        }
+
+        // The tightest edge between two clocks is the one that has to be satisfied.
+        const minimumOffsetMs = span.parent.startTimeMs - span.startTimeMs;
+        const existingMs = constraints.get(childGroup);
+
+        if (existingMs === undefined || minimumOffsetMs > existingMs) {
+            constraints.set(childGroup, minimumOffsetMs);
+        }
+    }
+
+    for (let pass = 0; pass < offsets.size; pass++) {
+        let isChanged = false;
+
+        for (const [parentGroup, constraints] of constraintsByParentGroup) {
+            for (const [childGroup, minimumOffsetMs] of constraints) {
+                const requiredMs = offsets.get(parentGroup)! + minimumOffsetMs;
+
+                if (requiredMs > offsets.get(childGroup)!) {
+                    offsets.set(childGroup, requiredMs);
+                    isChanged = true;
+                }
+            }
+        }
+
+        if (!isChanged) {
+            break;
+        }
+    }
+
+    // Only the differences carry meaning, so rebase them to keep every span at or after where it was.
+    // Spread into Math.min instead of this and a trace with a lot of clocks in it overflows the stack.
+    let smallestOffsetMs = Number.MAX_VALUE;
+
+    for (const offsetMs of offsets.values()) {
+        if (offsetMs < smallestOffsetMs) {
+            smallestOffsetMs = offsetMs;
+        }
+    }
+
+    for (const [group, offsetMs] of offsets) {
+        offsets.set(group, offsetMs - smallestOffsetMs);
+    }
+
+    return offsets;
+}
+
+function isSameSet(a: Set<string>, b: Set<string>): boolean {
+    if (a.size !== b.size) {
+        return false;
+    }
+
+    for (const value of a) {
+        if (!b.has(value)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 function populateParents(parents: Set<SpanItem>, span: SpanItem): void {
     parents.clear();
 
@@ -811,6 +1023,16 @@ interface SpanItem extends SpanData {
     rowIndex: number;
     childrenDepth: number;
     earlierSibling?: SpanItem;
+
+    /** Position in the list as it arrived, so that ordering stays put across a resort. */
+    readonly sourceIndex: number;
+
+    /** Which clock this span's times came off, as worked out by updateClockGroups. */
+    clockGroup: string;
+
+    /** The recorded time, plus this span's clock offset when that adjustment is switched on. */
+    adjustedStartTimeMs: number;
+    adjustedEndTimeMs: number;
 
     absolutePixelPositionX: number;
     absolutePixelPositionY: number;
