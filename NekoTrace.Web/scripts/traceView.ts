@@ -1,4 +1,4 @@
-import { type SpanData, SpanKind, StatusCode } from "./types.js";
+import { type SpanData, SpanKind, StatusCode } from "./types.ts";
 
 export function initialize(
     targetCanvas: HTMLCanvasElement & { traceRenderer: TraceRenderer },
@@ -50,6 +50,7 @@ history.replaceState = function replaceState(...a) {
 
 class TraceRenderer {
 
+    private readonly canvasElement: HTMLCanvasElement;
     private readonly canvasContext: CanvasRenderingContext2D;
     private readonly resizeObserver: ResizeObserver;
     private readonly mutationObserver: MutationObserver;
@@ -92,9 +93,8 @@ class TraceRenderer {
     /** The shift applied to each clock, keyed by SpanItem.clockGroup. Undefined until it is solved for. */
     private clockOffsetsByGroup?: Map<string, number>;
 
-    public constructor(
-        private readonly canvasElement: HTMLCanvasElement
-    ) {
+    public constructor(canvasElement: HTMLCanvasElement) {
+        this.canvasElement = canvasElement;
         this.canvasContext = canvasElement.getContext("2d")!;
 
         canvasElement.addEventListener("pointermove", this.canvasElement_pointermove);

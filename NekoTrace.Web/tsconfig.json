@@ -11,7 +11,11 @@
     "target": "esnext",
     "outDir": "wwwroot/js",
     "module": "esnext",
-    "rootDir": "./scripts"
+    "rootDir": "./scripts",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
   },
   "include": [
     "scripts/**/*"
