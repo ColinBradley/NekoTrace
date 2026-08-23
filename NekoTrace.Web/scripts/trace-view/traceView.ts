@@ -18,6 +18,13 @@ export class TraceRenderer {
     private readonly canvasContext: CanvasRenderingContext2D;
     private readonly resizeObserver: ResizeObserver;
 
+    /**
+     * The canvas box in whole device pixels, from the last resize callback that reported one. Undefined
+     * before the first callback, and on browsers that don't measure a device pixel content box.
+     */
+    private observedDevicePixelWidth?: number;
+    private observedDevicePixelHeight?: number;
+
     private characterPixelWidth = 1;
 
     /* Pixel sizes derived from the font size and the device pixel ratio. updateMetrics redoes the lot. */
@@ -46,6 +53,13 @@ export class TraceRenderer {
     private isPanning = false;
     private pointerX = 0;
     private pointerY = 0;
+
+    /**
+     * Where the pointer was when the drag last moved the view. Kept apart from pointerX/pointerY, which
+     * are reset when the pointer leaves - reading them here would turn the next move into a jump.
+     */
+    private panPointerX = 0;
+    private panPointerY = 0;
 
     private readonly selectedSpansParents = new Set<SpanItem>();
     private readonly hotSpansParents = new Set<SpanItem>();
@@ -83,7 +97,13 @@ export class TraceRenderer {
         canvasElement.addEventListener("wheel", this.canvasElement_wheel);
 
         this.resizeObserver = new ResizeObserver(this.canvasElement_resized);
-        this.resizeObserver.observe(canvasElement);
+
+        try {
+            this.resizeObserver.observe(canvasElement, { box: "device-pixel-content-box" });
+        } catch {
+            // Observing a box it doesn't implement throws, and leaves the element unobserved.
+            this.resizeObserver.observe(canvasElement);
+        }
 
         this.reloadStyle();
 
@@ -182,10 +202,19 @@ export class TraceRenderer {
         this.characterPixelWidth = this.canvasContext.measureText("L").width || 1;
     }
 
-    /** Sizes the backing store to the box CSS gave the canvas. Never writes the CSS size, or it loops. */
+    /**
+     * Sizes the backing store to the box CSS gave the canvas. Never writes the CSS size, or it loops.
+     *
+     * A backing store that isn't exactly the device pixels the box covers gets scaled to fit, and the whole
+     * view goes soft. Only the device pixel content box measures that; clientWidth is CSS pixels already
+     * rounded, and a grid track of `1fr` lands on a fraction most of the time. The rounding below is the
+     * fallback for browsers that don't report one, and for the calls made outside a resize callback.
+     */
     private resizeCanvas() {
-        const width = Math.max(1, Math.round(this.canvasElement.clientWidth * devicePixelRatioCache));
-        const height = Math.max(1, Math.round(this.canvasElement.clientHeight * devicePixelRatioCache));
+        const width = Math.max(1, this.observedDevicePixelWidth
+            ?? Math.round(this.canvasElement.clientWidth * devicePixelRatioCache));
+        const height = Math.max(1, this.observedDevicePixelHeight
+            ?? Math.round(this.canvasElement.clientHeight * devicePixelRatioCache));
 
         if (this.canvasElement.width === width && this.canvasElement.height === height) {
             return false;
@@ -272,8 +301,13 @@ export class TraceRenderer {
         this.pointerY = e.offsetY * devicePixelRatioCache;
 
         if (this.isPanning) {
-            this.left += e.movementX;
-            this.top += e.movementY;
+            // Measured off the pointer rather than taken from movementX, so the view keeps pace with the
+            // cursor: these are device pixels, which is what left and top are in, and movementX is not.
+            this.left += this.pointerX - this.panPointerX;
+            this.top += this.pointerY - this.panPointerY;
+
+            this.panPointerX = this.pointerX;
+            this.panPointerY = this.pointerY;
         }
 
         this.setHotSpan();
@@ -285,6 +319,8 @@ export class TraceRenderer {
         this.canvasElement.setPointerCapture(e.pointerId);
         this.canvasElement.classList.add("panning");
 
+        this.panPointerX = e.offsetX * devicePixelRatioCache;
+        this.panPointerY = e.offsetY * devicePixelRatioCache;
         this.isPanning = true;
 
         if (this.hotSpan !== undefined) {
@@ -362,7 +398,14 @@ export class TraceRenderer {
         this.render();
     };
 
-    private readonly canvasElement_resized = () => {
+    private readonly canvasElement_resized = (entries: ResizeObserverEntry[]) => {
+        const devicePixelBox = entries[entries.length - 1]?.devicePixelContentBoxSize?.[0];
+
+        // Zero is a box that isn't being painted rather than a measurement of one, and taking it at its
+        // word collapses the canvas to a pixel. Fall back to the CSS size until it is painted again.
+        this.observedDevicePixelWidth = devicePixelBox?.inlineSize || undefined;
+        this.observedDevicePixelHeight = devicePixelBox?.blockSize || undefined;
+
         if (this.resizeCanvas()) {
             this.updateSpanLocations();
         }
@@ -372,6 +415,9 @@ export class TraceRenderer {
 
     private readonly devicePixelRatio_changed = () => {
         devicePixelRatioCache = window.devicePixelRatio;
+
+        this.observedDevicePixelWidth = undefined;
+        this.observedDevicePixelHeight = undefined;
 
         this.watchDevicePixelRatio();
         this.resizeCanvas();
