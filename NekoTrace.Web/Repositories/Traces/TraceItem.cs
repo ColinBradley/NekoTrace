@@ -50,49 +50,48 @@ public sealed record TraceItem : IDisposable
             : null;
     }
 
-    internal void AddSpan(SpanData span)
-    {
-        using (mLock.Write())
-        {
-            this.AddSpanCore(span);
-        }
-
-        this.Repository.OnTraceChanged();
-    }
+    internal void AddSpan(SpanData span) =>
+        this.AddSpans([span]);
 
     internal void AddSpans(IEnumerable<SpanData> spans)
     {
         using (mLock.Write())
         {
+            // Builders so a batch pays one tree rebuild instead of one per span. Both round-trips are O(1),
+            // so the single-span path loses nothing, and the batch only becomes visible to readers once it
+            // is whole.
+            var ordered = this.Spans.ToBuilder();
+            var byId = this.SpansById.ToBuilder();
+
             foreach (var span in spans)
             {
-                this.AddSpanCore(span);
+                this.AddSpanCore(ordered, byId, span);
             }
+
+            this.Spans = ordered.ToImmutable();
+            this.SpansById = byId.ToImmutable();
         }
 
         this.Repository.OnTraceChanged();
     }
 
-    private void AddSpanCore(SpanData span)
+    private void AddSpanCore(
+        ImmutableList<SpanData>.Builder ordered,
+        ImmutableDictionary<string, SpanData>.Builder byId,
+        SpanData span
+    )
     {
         // The same span id can arrive more than once — an exporter retrying a batch, or the same trace file
         // uploaded twice. A span is immutable once exported, so the repeat carries nothing new and the copy we
         // already hold wins. Without this the ordered list grows a second entry that SpansById, being keyed,
         // cannot see, leaving the two indexes disagreeing about how many spans the trace has.
-        if (this.SpansById.ContainsKey(span.Id))
+        if (byId.ContainsKey(span.Id))
         {
             return;
         }
 
-        // Insert *after* the last span that starts no later than this one, hence the + 1. That also covers
-        // the no-match case: FindLastIndex returns -1 when this span starts before everything held, which
-        // lands it at index 0. The comparison includes equality so that spans sharing a start time keep
-        // their arrival order — an SDK with millisecond clock resolution produces plenty of those, and a
-        // strict < would file each one ahead of its predecessors, reversing the group.
-        var insertIndex = this.Spans.FindLastIndex(s => s.StartTime <= span.StartTime);
-
-        this.Spans = this.Spans.Insert(insertIndex + 1, span);
-        this.SpansById = this.SpansById.SetItem(span.Id, span);
+        ordered.Insert(FindInsertIndex(ordered, span.StartTime), span);
+        byId.Add(span.Id, span);
 
         this.HasError =
             this.HasError
@@ -122,6 +121,34 @@ public sealed record TraceItem : IDisposable
         }
 
         this.Repository.AddSpan(span);
+    }
+
+    /// <summary>
+    /// Where <paramref name="startTime"/> belongs in a list already ordered by start time: one past the last
+    /// span that starts no later than it. Landing *after* the run of equal start times is what keeps those
+    /// spans in arrival order — an SDK with millisecond clock resolution produces plenty of them, and filing
+    /// each new one ahead of its equals would reverse the group.
+    /// </summary>
+    private static int FindInsertIndex(ImmutableList<SpanData>.Builder ordered, DateTimeOffset startTime)
+    {
+        var low = 0;
+        var high = ordered.Count;
+
+        while (low < high)
+        {
+            var middle = low + ((high - low) / 2);
+
+            if (ordered[middle].StartTime <= startTime)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        return low;
     }
 
     public void Dispose()
