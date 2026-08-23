@@ -103,7 +103,7 @@ internal sealed record TraceSummary
             RootSpanName = trace.RootSpan?.Name,
             Start = trace.Start,
             DurationMs = trace.Duration.TotalMilliseconds,
-            SpanCount = spans.Count,
+            SpanCount = spans.Length,
             DistinctSpanNames = byName.Count,
             Services =
             [

@@ -37,7 +37,7 @@ public sealed class TraceViews
                 RootSpanName = trace.RootSpan?.Name,
                 Start = trace.Start,
                 DurationMs = trace.Duration.TotalMilliseconds,
-                SpanCount = trace.Spans.Count,
+                SpanCount = trace.Spans.Length,
                 HasError = trace.HasError,
             })
             .ToImmutableArray();

@@ -10,7 +10,7 @@ public sealed partial class TraceViewComponent : IDisposable
     public const string DEFAULT_SPAN_COLOR_SELECTOR = "otel.library.name";
     public const string SELECTED_SPAN_ID_PARAMETER = "selectedSpanId";
 
-    private ImmutableList<SpanData>? mClientSpans;
+    private ImmutableArray<SpanData> mClientSpans;
     private DotNetObjectReference<TraceViewComponent>? mSelfReference;
 
     [Parameter, EditorRequired]
@@ -60,7 +60,7 @@ public sealed partial class TraceViewComponent : IDisposable
             this.TraceModule is null
             || trace is null
             || this.TraceViewElement is null
-            || object.ReferenceEquals(mClientSpans, trace.Spans)
+            || mClientSpans.Equals(trace.Spans)
         )
         {
             if (trace is null || this.TraceViewElement is null)

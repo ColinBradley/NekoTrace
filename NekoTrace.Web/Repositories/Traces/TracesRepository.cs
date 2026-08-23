@@ -102,7 +102,7 @@ public sealed class TracesRepository : IDisposable
         ExportTraceServiceRequest request
     )
     {
-        var touchedTraces = new HashSet<TraceItem>(ReferenceEqualityComparer.Instance);
+        var spansByTrace = new Dictionary<TraceItem, List<SpanData>>(ReferenceEqualityComparer.Instance);
 
         foreach (var resourceSpan in request.ResourceSpans)
         {
@@ -124,10 +124,20 @@ public sealed class TracesRepository : IDisposable
                 foreach (var span in scopeSpan.Spans)
                 {
                     var trace = this.GetOrAddTrace(span.TraceId);
-                    trace.AddSpan(ConvertSpan(span, scopeAttributes.Concat(resourceAttributes)));
-                    touchedTraces.Add(trace);
+
+                    if (!spansByTrace.TryGetValue(trace, out var traceSpans))
+                    {
+                        spansByTrace[trace] = traceSpans = [];
+                    }
+
+                    traceSpans.Add(ConvertSpan(span, scopeAttributes.Concat(resourceAttributes)));
                 }
             }
+        }
+
+        foreach (var (trace, traceSpans) in spansByTrace)
+        {
+            trace.AddSpans(traceSpans);
         }
 
         // Apply ingest filter to touched traces
@@ -139,12 +149,12 @@ public sealed class TracesRepository : IDisposable
         }
 
         var rejectedSpans = 0;
-        foreach (var trace in touchedTraces)
+        foreach (var trace in spansByTrace.Keys)
         {
             if (mParsedTraceIngestFilter.IsRejected(trace))
             {
                 this.RemoveTrace(trace);
-                rejectedSpans += trace.Spans.Count;
+                rejectedSpans += trace.Spans.Length;
             }
         }
 

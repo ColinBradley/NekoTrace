@@ -8,13 +8,36 @@ public sealed record TraceItem : IDisposable
 {
     private readonly BetterReaderWriterLock mLock = new();
 
+    private readonly List<SpanData> mOrderedSpans = [];
+    private readonly Dictionary<string, SpanData> mSpansById = new(StringComparer.Ordinal);
+
+    private IReadOnlyDictionary<string, SpanData>? mPublishedSpansById;
+
     public required string Id { get; init; }
 
     public required TracesRepository Repository { get; init; }
 
-    public ImmutableList<SpanData> Spans { get; private set; } = [];
+    /// <summary>
+    /// Every span held, ordered by start time.
+    /// </summary>
+    public ImmutableArray<SpanData> Spans { get; private set; } = [];
 
-    public ImmutableDictionary<string, SpanData> SpansById { get; private set; } = ImmutableDictionary.Create<string, SpanData>(StringComparer.Ordinal);
+    public IReadOnlyDictionary<string, SpanData> SpansById
+    {
+        get
+        {
+            using var readLock = mLock.UpgradeableRead();
+
+            if (mPublishedSpansById is null)
+            {
+                using var writeLock = mLock.Write();
+
+                mPublishedSpansById = new Dictionary<string, SpanData>(mSpansById, StringComparer.Ordinal);
+            }
+
+            return mPublishedSpansById;
+        }
+    }
 
     public SpanData? RootSpan { get; private set; }
 
@@ -57,41 +80,37 @@ public sealed record TraceItem : IDisposable
     {
         using (mLock.Write())
         {
-            // Builders so a batch pays one tree rebuild instead of one per span. Both round-trips are O(1),
-            // so the single-span path loses nothing, and the batch only becomes visible to readers once it
-            // is whole.
-            var ordered = this.Spans.ToBuilder();
-            var byId = this.SpansById.ToBuilder();
-
+            var added = false;
             foreach (var span in spans)
             {
-                this.AddSpanCore(ordered, byId, span);
+                added |= this.AddSpanCore(span);
             }
 
-            this.Spans = ordered.ToImmutable();
-            this.SpansById = byId.ToImmutable();
+            if (added)
+            {
+                this.Spans = mOrderedSpans.ToImmutableArray();
+                mPublishedSpansById = null;
+            }
         }
 
         this.Repository.OnTraceChanged();
     }
 
-    private void AddSpanCore(
-        ImmutableList<SpanData>.Builder ordered,
-        ImmutableDictionary<string, SpanData>.Builder byId,
-        SpanData span
-    )
+    /// <summary>
+    /// Returns true when the span was new.
+    /// </summary>
+    private bool AddSpanCore(SpanData span)
     {
         // The same span id can arrive more than once — an exporter retrying a batch, or the same trace file
         // uploaded twice. A span is immutable once exported, so the repeat carries nothing new and the copy we
         // already hold wins. Without this the ordered list grows a second entry that SpansById, being keyed,
         // cannot see, leaving the two indexes disagreeing about how many spans the trace has.
-        if (byId.ContainsKey(span.Id))
+        if (!mSpansById.TryAdd(span.Id, span))
         {
-            return;
+            return false;
         }
 
-        ordered.Insert(FindInsertIndex(ordered, span.StartTime), span);
-        byId.Add(span.Id, span);
+        mOrderedSpans.Insert(FindInsertIndex(mOrderedSpans, span.StartTime), span);
 
         this.HasError =
             this.HasError
@@ -121,6 +140,8 @@ public sealed record TraceItem : IDisposable
         }
 
         this.Repository.AddSpan(span);
+
+        return true;
     }
 
     /// <summary>
@@ -129,7 +150,7 @@ public sealed record TraceItem : IDisposable
     /// spans in arrival order — an SDK with millisecond clock resolution produces plenty of them, and filing
     /// each new one ahead of its equals would reverse the group.
     /// </summary>
-    private static int FindInsertIndex(ImmutableList<SpanData>.Builder ordered, DateTimeOffset startTime)
+    private static int FindInsertIndex(List<SpanData> ordered, DateTimeOffset startTime)
     {
         var low = 0;
         var high = ordered.Count;

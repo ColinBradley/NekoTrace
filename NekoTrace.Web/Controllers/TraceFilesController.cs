@@ -141,13 +141,25 @@ public sealed class TraceFilesController : ControllerBase
             value?.Contains("application/json", StringComparison.OrdinalIgnoreCase) is true
         );
 
-    private static SpanData NormalizeSpanIds(SpanData span) =>
-        span with
-        {
-            Id = TraceIds.NormalizeToHex(span.Id, TraceIds.SPAN_ID_BYTE_LENGTH),
-            TraceId = TraceIds.NormalizeToHex(span.TraceId, TraceIds.TRACE_ID_BYTE_LENGTH),
-            ParentSpanId = string.IsNullOrEmpty(span.ParentSpanId)
-                ? null
-                : TraceIds.NormalizeToHex(span.ParentSpanId, TraceIds.SPAN_ID_BYTE_LENGTH),
-        };
+    private static SpanData NormalizeSpanIds(SpanData span)
+    {
+        var id = TraceIds.NormalizeToHex(span.Id, TraceIds.SPAN_ID_BYTE_LENGTH);
+        var traceId = TraceIds.NormalizeToHex(span.TraceId, TraceIds.TRACE_ID_BYTE_LENGTH);
+        var parentSpanId = string.IsNullOrEmpty(span.ParentSpanId)
+            ? null
+            : TraceIds.NormalizeToHex(span.ParentSpanId, TraceIds.SPAN_ID_BYTE_LENGTH);
+
+        // Ids already in the stored form normalise to the very strings they arrived as, which is every id in
+        // a file this build wrote — so the whole trace passes through without a span being copied.
+        return ReferenceEquals(id, span.Id)
+            && ReferenceEquals(traceId, span.TraceId)
+            && ReferenceEquals(parentSpanId, span.ParentSpanId)
+            ? span
+            : span with
+            {
+                Id = id,
+                TraceId = traceId,
+                ParentSpanId = parentSpanId,
+            };
+    }
 }

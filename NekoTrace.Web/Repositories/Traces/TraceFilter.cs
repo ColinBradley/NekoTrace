@@ -39,7 +39,7 @@ public sealed record TraceFilter
 
     public bool Matches(TraceItem trace)
     {
-        if (this.SpansMinimum.HasValue && trace.Spans.Count < this.SpansMinimum.Value)
+        if (this.SpansMinimum.HasValue && trace.Spans.Length < this.SpansMinimum.Value)
         {
             return false;
         }

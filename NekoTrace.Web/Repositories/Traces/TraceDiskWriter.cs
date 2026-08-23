@@ -146,7 +146,7 @@ public sealed class TraceDiskWriter : IAsyncDisposable
                     return;
                 }
 
-                if (state.LastWrittenSpanCount == trace.Spans.Count)
+                if (state.LastWrittenSpanCount == trace.Spans.Length)
                 {
                     return;
                 }
@@ -197,7 +197,7 @@ public sealed class TraceDiskWriter : IAsyncDisposable
 
                     File.Move(tempPath, fullPath, overwrite: true);
 
-                    state.LastWrittenSpanCount = trace.Spans.Count;
+                    state.LastWrittenSpanCount = trace.Spans.Length;
                 }
                 catch (Exception ex)
                 {

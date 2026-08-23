@@ -43,6 +43,17 @@ public sealed class TraceIdsTests
         );
     }
 
+    [Theory]
+    [InlineData("4bf92f3577b34da6a3ce929d0e0e4736", TraceIds.TRACE_ID_BYTE_LENGTH)]
+    [InlineData("00f067aa0ba902b7", TraceIds.SPAN_ID_BYTE_LENGTH)]
+    public void NormalizeToHex_ReturnsTheSameInstance_WhenAlreadyStoredForm(string value, int byteLength)
+    {
+        // Not an incidental detail: callers normalising a whole object compare the result by reference to
+        // decide whether anything changed, and a copy that merely equals would have them rebuild every span
+        // in a file that needed no conversion at all.
+        Assert.Same(value, TraceIds.NormalizeToHex(value, byteLength));
+    }
+
     [Fact]
     public void NormalizeToHex_ConvertsLegacyBase64TraceId()
     {

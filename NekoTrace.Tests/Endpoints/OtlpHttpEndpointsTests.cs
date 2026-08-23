@@ -97,7 +97,7 @@ public sealed class OtlpHttpEndpointsTests
 
         var trace = Assert.Single(harness.Traces.Traces);
 
-        Assert.Equal(2, trace.Spans.Count);
+        Assert.Equal(2, trace.Spans.Length);
         Assert.Equal(Otlp.ROOT_SPAN_ID, trace.RootSpan?.Id);
     }
 

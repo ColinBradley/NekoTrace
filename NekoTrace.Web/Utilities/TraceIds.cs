@@ -17,6 +17,9 @@ internal static class TraceIds
     /// Returns <paramref name="value"/> as lowercase hex, accepting either hex or the base64 that
     /// NekoTrace wrote before it moved to hex. Anything that decodes as neither is passed through
     /// unchanged, so an unrecognised id still loads as a self-consistent opaque key.
+    ///
+    /// An id that is already in the stored form comes back as the same instance, so a caller normalising a
+    /// whole object can compare by reference and keep the one it has instead of copying it.
     /// </summary>
     public static string NormalizeToHex(string value, int byteLength)
     {
@@ -27,8 +30,11 @@ internal static class TraceIds
 
         if (IsHexId(value, byteLength))
         {
-            // Round tripped rather than lowercased in place, since the OTLP spec allows either case.
-            return Convert.ToHexStringLower(Convert.FromHexString(value));
+            // The OTLP spec allows either case, so uppercase still has to be folded; lowercase is already
+            // what we store and is handed straight back.
+            return HasUpperHexDigit(value)
+                ? Convert.ToHexStringLower(Convert.FromHexString(value))
+                : value;
         }
 
         Span<byte> bytes = stackalloc byte[TRACE_ID_BYTE_LENGTH];
@@ -38,6 +44,19 @@ internal static class TraceIds
         }
 
         return value;
+    }
+
+    private static bool HasUpperHexDigit(string value)
+    {
+        foreach (var character in value)
+        {
+            if (char.IsAsciiLetterUpper(character))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

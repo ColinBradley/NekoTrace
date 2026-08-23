@@ -262,8 +262,8 @@ public sealed class TraceFilesControllerTests
 
         var trace = repository.TryGetTrace(Otlp.TRACE_ID)!;
 
-        Assert.Equal(2, trace.Spans.Count);
-        Assert.Equal(trace.Spans.Count, trace.SpansById.Count);
+        Assert.Equal(2, trace.Spans.Length);
+        Assert.Equal(trace.Spans.Length, trace.SpansById.Count);
     }
 
     [Fact]

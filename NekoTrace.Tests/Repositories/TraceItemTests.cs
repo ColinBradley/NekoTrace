@@ -140,7 +140,7 @@ public sealed class TraceItemTests
         trace.AddSpan(Fake.Span(id: Otlp.ROOT_SPAN_ID, name: "retry"));
 
         Assert.Single(trace.Spans);
-        Assert.Equal(trace.Spans.Count, trace.SpansById.Count);
+        Assert.Equal(trace.Spans.Length, trace.SpansById.Count);
         // A span is immutable once exported, so the copy already held wins.
         Assert.Equal("original", trace.Spans[0].Name);
     }
@@ -171,8 +171,8 @@ public sealed class TraceItemTests
             ]
         );
 
-        Assert.Equal(2, trace.Spans.Count);
-        Assert.Equal(trace.Spans.Count, trace.SpansById.Count);
+        Assert.Equal(2, trace.Spans.Length);
+        Assert.Equal(trace.Spans.Length, trace.SpansById.Count);
     }
 
     [Fact]
