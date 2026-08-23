@@ -26,7 +26,7 @@ Verification is `dotnet build` (warnings are meaningful, see below) plus `dotnet
 
 `TestTraces/` is gitignored, so it is often absent — but when sample traces exist locally, that is where they are: downloaded `.json.gz` trace files, useful for exercising the upload path (`POST /api/trace-files`) against real data rather than synthesised spans. Files saved by older builds can carry base64 ids instead of hex, which makes them worth keeping around.
 
-TypeScript under `NekoTrace.Web/scripts/` and `NekoTrace.TraceView/src/` is compiled as part of `dotnet build`, both into `NekoTrace.Web/wwwroot/js/`; never edit the generated JS there. There is no npm and no bundler — `Microsoft.TypeScript.MSBuild` runs `tsc -b` across the two, in that dependency order.
+TypeScript under `NekoTrace.Web/scripts/` is compiled as part of `dotnet build` into `NekoTrace.Web/wwwroot/js/`; never edit the generated JS there. There is no npm and no bundler — `Microsoft.TypeScript.MSBuild` runs `tsc` over `NekoTrace.Web/tsconfig.json`.
 
 ## Architecture
 
