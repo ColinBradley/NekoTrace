@@ -26,13 +26,13 @@ Verification is `dotnet build` (warnings are meaningful, see below) plus `dotnet
 
 `TestTraces/` is gitignored, so it is often absent — but when sample traces exist locally, that is where they are: downloaded `.json.gz` trace files, useful for exercising the upload path (`POST /api/trace-files`) against real data rather than synthesised spans. Files saved by older builds can carry base64 ids instead of hex, which makes them worth keeping around.
 
-TypeScript under `NekoTrace.Web/scripts/` is compiled as part of `dotnet build`; never edit the generated JS in `wwwroot/js/`.
+TypeScript under `NekoTrace.Web/scripts/` and `NekoTrace.TraceView/src/` is compiled as part of `dotnet build`, both into `NekoTrace.Web/wwwroot/js/`; never edit the generated JS there. There is no npm and no bundler — `Microsoft.TypeScript.MSBuild` runs `tsc -b` across the two, in that dependency order.
 
 ## Architecture
 
-Three projects: `NekoTrace.Web`, `NekoTrace.Cli` and `NekoTrace.Tests` covering both. The app itself is an in-memory OpenTelemetry collector plus a Blazor Server UI for browsing what it collected. No database, no external dependencies.
+Three .NET projects: `NekoTrace.Web`, `NekoTrace.Cli` and `NekoTrace.Tests` covering both. The app itself is an in-memory OpenTelemetry collector plus a Blazor Server UI for browsing what it collected. No database, no external dependencies.
 
-`NekoTrace.Cli` builds `NekoTrace.Cli`, a thin HTTP client over the web app's read API — it references nothing of `NekoTrace.Web` and analyses nothing itself, so a change to the analysis engine reaches it without being touched. See [docs/ai-access.md](docs/ai-access.md).
+`NekoTrace.Cli` builds `NekoTrace.Cli`, a thin HTTP client over the web app's read API — it references nothing of `NekoTrace.Web` and analyses nothing itself, so a change to the analysis engine reaches it without being touched.
 
 **Two web hosts, one process.** `Program.cs` builds *two* independent `WebApplication`s on separate `Task`s:
 
@@ -46,8 +46,8 @@ Logs and profiles gRPC services exist so exporters don't error, but they discard
 Three rules cut across everything:
 
 - **Repositories mutate under a lock and publish immutable snapshots.** Readers never lock. Produce a new immutable collection rather than mutating in place.
-- **UI state lives in the URL.** Pages use `[SupplyParameterFromQuery]` and navigate with `replace: true`, so views stay shareable. Keep new view options query-parameter-driven.
-- **The UI renders for the viewer's browser, never the host.** Timestamps are stored as UTC and converted on the way out by the scoped `BrowserTimeZone` service; numbers and dates are formatted by `CurrentCulture`, which `UseRequestLocalization` sets from `Accept-Language`. Values coming *back* from form controls are always invariant, so parse them through `Utilities/InputValues.cs` (or `BrowserTimeZone.ParseInputToLocal`) rather than directly. Nothing may read the host's zone or locale: NekoTrace usually runs in a UTC, invariant-culture container. See [docs/localization.md](docs/localization.md).
+- **UI state lives in the URL.** Pages use `[SupplyParameterFromQuery]` and navigate with `replace: true`, so views stay shareable. Keep new view options query-parameter-driven. The trace viewer holds to the same rule from TypeScript, writing the query string itself and telling its host it changed.
+- **The UI renders for the viewer's browser, never the host.** Timestamps are stored as UTC and converted on the way out by the scoped `BrowserTimeZone` service; numbers and dates are formatted by `CurrentCulture`, which `UseRequestLocalization` sets from `Accept-Language`. Values coming *back* from form controls are always invariant, so parse them through `Utilities/InputValues.cs` (or `BrowserTimeZone.ParseInputToLocal`) rather than directly. The trace viewer reaches the same end from the client, formatting through `Intl` against the browser's own locale and zone. Nothing may read the host's zone or locale: NekoTrace usually runs in a UTC, invariant-culture container.
 
 ## Conventions
 
@@ -66,18 +66,3 @@ Markdown: put each paragraph, list item and table row on one line, however long 
 
 Adhere to machine line ending choices. Windows line endings are probably CRLF. It'll all get stored as LF anyway.
 
-## Details
-
-Read these only when working in the area they cover.
-
-| File | Read it when |
-| --- | --- |
-| [docs/feature-design.md](docs/feature-design.md) | Judging whether a feature belongs in NekoTrace at all, or revisiting something already declined. |
-| [docs/ai-access.md](docs/ai-access.md) | Working on `Analysis/`, the trace analysis HTTP API, or the MCP server. |
-| [docs/data-model.md](docs/data-model.md) | Touching how traces/spans/metrics are stored, indexed, locked, trimmed or written to disk. |
-| [docs/filtering.md](docs/filtering.md) | Adding or changing a filter dimension, or anything using `TraceFilter`. |
-| [docs/configuration.md](docs/configuration.md) | Adding a config option, or changing how config is read. |
-| [docs/trace-viewer.md](docs/trace-viewer.md) | Working on the flame graph canvas, `scripts/*.ts`, or the .NET↔JS interop. |
-| [docs/localization.md](docs/localization.md) | Rendering a timestamp or a number, reading any form input, or touching how the browser's zone and culture reach the server. |
-| [docs/build-and-release.md](docs/build-and-release.md) | Cutting a release, changing publish/Docker/CI, or touching `Protos/`. |
-| [docs/testing.md](docs/testing.md) | Adding or changing tests, or wondering why something isn't covered. |

@@ -10,7 +10,7 @@ using System.Collections.Immutable;
 /// </summary>
 /// <remarks>
 /// This deliberately carries only what is unusual — no routine spans, no attribute dumps — because its job is
-/// to let a reader decide which of the other views to ask for next. See <c>docs/ai-access.md</c>.
+/// to let a reader decide which of the other views to ask for next.
 /// </remarks>
 internal sealed record TraceSummary
 {

@@ -6,6 +6,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <UserSecretsId>389d3aa4-6bfc-45e4-90b8-6cf0cd0ea7a2</UserSecretsId>
         <PublishIISAssets>false</PublishIISAssets>
+        <!-- Set here as well as in tsconfig.json, because the MSBuild default overrides it. -->
+        <TypeScriptTarget>ESNext</TypeScriptTarget>
     </PropertyGroup>
 
     <ItemGroup>
@@ -48,7 +50,7 @@
 
     <!--
       Publishes NekoTrace.Cli into this project's publish output so the two ship together, matching the
-      runtime and self-containedness of whichever profile is running. See docs/build-and-release.md.
+      runtime and self-containedness of whichever profile is running.
 
       Conditional because the Dockerfile copies only NekoTrace.Web into its build stage; the image carries
       no CLI by design.

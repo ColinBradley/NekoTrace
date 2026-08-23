@@ -11,7 +11,7 @@ using System.ComponentModel;
 using static OpenTelemetry.Proto.Trace.V1.Span.Types;
 
 /// <summary>
-/// The MCP surface, mounted in process at <c>/mcp</c>. See <c>docs/ai-access.md</c>.
+/// The MCP surface, mounted in process at <c>/mcp</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -24,8 +24,7 @@ using static OpenTelemetry.Proto.Trace.V1.Span.Types;
 /// filters as a raw query string, which is right there — a URL from the UI's address bar pastes straight in —
 /// but there is no address bar here, and handing a model one opaque string means the schema can say nothing
 /// about what may go in it. **<see cref="ListTraces"/> has to keep pace with <c>TraceFilter</c>**: a
-/// dimension added there and not here is one an MCP caller cannot reach. <c>docs/filtering.md</c> lists this
-/// among the places to touch.
+/// dimension added there and not here is one an MCP caller cannot reach.
 /// </para>
 /// </remarks>
 [McpServerToolType]

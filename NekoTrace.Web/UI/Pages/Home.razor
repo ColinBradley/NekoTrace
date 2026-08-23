@@ -248,7 +248,7 @@
 				</ColumnOptions>
 
 				<ChildContent>
-					<NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.TraceId), context.Id), new(nameof(TraceViewComponent.SelectedSpanId), null)]))"
+					<NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.TraceId), context.Id), new(TraceViewComponent.SELECTED_SPAN_ID_PARAMETER, null)]))"
 							 title="@(context.RootSpan?.Name ?? context.Id)">
 						@(context.RootSpan?.Name ?? context.Id)
 					</NavLink>

@@ -53,7 +53,7 @@ internal static class Units
     /// ask, so a zone could only come from the host — which in a container means nothing — or from a caller
     /// that already knows the zone and can therefore convert perfectly well itself. Zone rules also change,
     /// and a server carrying a stale tzdata is worse than one that never claims to know. The UI's
-    /// browser-zone rule in <c>docs/localization.md</c> is about rendering to a person; this is not that.
+    /// browser-zone rule is about rendering to a person; this is not that.
     /// The format round trips into the <c>startedAfter</c> and <c>startedBefore</c> filters unchanged.
     /// </remarks>
     public static string Timestamp(DateTimeOffset value) =>

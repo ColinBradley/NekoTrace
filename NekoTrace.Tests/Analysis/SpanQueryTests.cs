@@ -52,7 +52,7 @@ public sealed class SpanQueryTests
     [Theory]
     [InlineData("2026-08-09T14:00:00Z", 14)]
     // No offset means UTC, not the host's zone: reading the host clock would make the same request mean
-    // different things on different machines. See docs/localization.md.
+    // different things on different machines.
     [InlineData("2026-08-09T14:00:00", 14)]
     [InlineData("2026-08-09T15:00:00+01:00", 14)]
     public void ParseTimestamp_ReadsAnOffsetlessTimeAsUtc(string value, int expectedUtcHour)

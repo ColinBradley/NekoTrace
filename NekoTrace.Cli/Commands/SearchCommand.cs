@@ -6,8 +6,8 @@ using System.CommandLine;
 /// <c>GET api/spans</c>. The span predicate, one option per dimension.
 /// </summary>
 /// <remarks>
-/// Flag shaped rather than a query language, which is a decision taken in <c>docs/ai-access.md</c> and not one
-/// the CLI gets to revisit: a second language to learn is a cost paid by every caller for a case these cover.
+/// Flag shaped rather than a query language, and not a decision the CLI gets to revisit: a second language to
+/// learn is a cost paid by every caller for a case these cover.
 /// </remarks>
 internal static class SearchCommand
 {

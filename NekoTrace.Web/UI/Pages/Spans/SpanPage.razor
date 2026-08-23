@@ -1,7 +1,6 @@
 ﻿@page "/spans/{SpanName}"
 
 @using Microsoft.AspNetCore.Components.QuickGrid
-@using System.Collections.Immutable
 
 <PageTitle>Span: @this.SpanName - NekoTrace</PageTitle>
 
@@ -116,7 +115,7 @@
                     @{
                         var trace = this.TracesRepo.TryGetTrace(context.TraceId);
                     }
-                    <NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.TraceId), context.TraceId), new(nameof(TraceViewComponent.SelectedSpanId), context.Id)]))"
+                    <NavLink href="@this.Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>([new(nameof(this.TraceId), context.TraceId), new(TraceViewComponent.SELECTED_SPAN_ID_PARAMETER, context.Id)]))"
                              title="@(trace?.RootSpan?.Name ?? context.TraceId)">
                         @(trace?.RootSpan?.Name ?? context.TraceId)
                     </NavLink>

@@ -10,7 +10,7 @@ using System.Collections.Immutable;
 /// </summary>
 /// <remarks>
 /// Split out so the analysis endpoints don't invent a second spelling of the thing the UI's address bar and
-/// the two config filters already use. See <c>docs/filtering.md</c>.
+/// the two config filters already use.
 /// </remarks>
 internal sealed record AttributeMatcher
 {

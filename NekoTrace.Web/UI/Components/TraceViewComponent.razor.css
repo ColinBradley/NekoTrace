@@ -1,97 +1,34 @@
-﻿.trace {
+﻿/*
+ * Only the frame around the view. Everything inside <neko-trace-view> is styled by
+ * NekoTrace.TraceView/trace-view.css, which this page links from App.razor.
+ */
+
+.trace {
 	display: grid;
-	grid-template-columns: min-content;
-	grid-template-rows: min-content auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: min-content minmax(0, 1fr);
+	min-width: 0;
+	min-height: 0;
+}
+
+/* The view sizes itself to the box it is given, so that box is what there is to decide here. */
+.trace.small {
+	width: min(50vw, 900px);
+}
+
+.trace.full {
+	grid-template-rows: min-content min-content minmax(0, 1fr);
 }
 
 .commands {
+	align-items: center;
 	padding: .5em;
 }
 
-.events {
-	display: flex;
-	flex-direction: column;
-	gap: .5em;
-}
-
-.span-info dd {
-	/* The value does its own ellipsing, otherwise text-overflow stops the copy button being painted */
-	text-overflow: clip;
-}
-
-	.span-info dd:hover ::deep .text {
-		max-width: none;
-		overflow: visible;
-	}
-
-	.span-info dd ::deep .copy-button {
-		opacity: 0;
-	}
-
-	.span-info dt:hover + dd ::deep .copy-button,
-	.span-info dd:hover ::deep .copy-button,
-	.span-info dd ::deep .copy-button:focus-visible {
-		opacity: 1;
-	}
-
-	/* Hidden with opacity rather than display so that the key column doesn't resize while the mouse moves down the list */
-	.span-info dt ::deep .hide-button {
-		opacity: 0;
-	}
-
-	.span-info dt:hover ::deep .hide-button,
-	.span-info dt:has(+ dd:hover) ::deep .hide-button,
-	.span-info dt ::deep .hide-button:focus-visible {
-		opacity: 1;
-	}
-
-canvas {
-	background-color: #181818;
-}
-
-.info {
-	overflow: auto;
-	padding: 1em;
-	gap: 1em;
-	display: flex;
-	flex-direction: column;
+.close {
+	margin-inline-start: auto;
 }
 
 h1 {
 	padding: .3em;
-	grid-column: 1 / -1;
-}
-
-.trace.full {
-	grid-template-columns: min-content minmax(0, 1fr);
-	grid-template-rows: min-content min-content minmax(0, 1fr);
-	overflow: auto;
-}
-
-.full .commands {
-	grid-row: 2;
-}
-
-.full canvas {
-	grid-row: 3;
-}
-
-.full .info {
-	grid-row: 2 / -1;
-}
-
-hint-content {
-	display: none;
-	position: fixed;
-	padding: .5em;
-	background-color: canvas;
-	position-area: y-end;
-}
-
-hint-content ul {
-	padding-inline-start: 2ch;
-}
-
-hint:hover > hint-content {
-	display: block;
 }

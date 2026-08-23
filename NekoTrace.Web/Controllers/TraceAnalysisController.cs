@@ -10,7 +10,7 @@ using NekoTrace.Web.Utilities;
 using System.Collections.Immutable;
 
 /// <summary>
-/// The read side an agent or the CLI talks to. See <c>docs/ai-access.md</c>.
+/// The read side an agent or the CLI talks to.
 /// </summary>
 /// <remarks>
 /// Public only because ASP.NET Core does not discover internal controllers; everything it hands around is
@@ -32,8 +32,7 @@ public sealed class TraceAnalysisController : ControllerBase
 
     /// <summary>
     /// The trace list. Filtered by <c>TraceFilter</c> read straight off this request's own query string, so a
-    /// URL copied out of the UI's address bar means here exactly what it means there — see
-    /// <c>docs/filtering.md</c>.
+    /// URL copied out of the UI's address bar means here exactly what it means there.
     /// </summary>
     [HttpGet("traces")]
     public IActionResult ListTraces() =>
@@ -196,7 +195,6 @@ public sealed class TraceAnalysisController : ControllerBase
 
     // Through InputValues rather than a bare TryParse: UseRequestLocalization sits in front of this app, so
     // CurrentCulture is the caller's, and a query string is invariant however the caller's locale reads.
-    // See docs/localization.md.
     private int? ReadOptionalInt(string key) => InputValues.TryParseInt32(this.Read(key));
 
     private ImmutableHashSet<string> ReadPipeSeparated(string key) =>

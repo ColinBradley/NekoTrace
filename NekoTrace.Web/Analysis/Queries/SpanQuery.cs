@@ -61,7 +61,6 @@ internal sealed record SpanQuery
         // Durations go through InputValues rather than a bare TryParse: request localization sets
         // CurrentCulture from the caller's Accept-Language, and a query string is invariant whatever that
         // says — a bare parse would read '1.5' as fifteen hundred for anyone grouping with a dot, silently.
-        // See docs/localization.md.
         if (
             query.TryGetValue("minDuration", out var minimum)
             && InputValues.TryParseDouble(minimum.FirstOrDefault()) is { } minimumSeconds
@@ -128,7 +127,7 @@ internal sealed record SpanQuery
     /// <summary>
     /// A timestamp from a caller, read as UTC when it carries no offset of its own. There is no browser on
     /// this side of the app to supply a zone, and reading the host's would make the same request mean
-    /// different things on different machines — see <c>docs/localization.md</c>.
+    /// different things on different machines.
     /// </summary>
     public static DateTimeOffset? ParseTimestamp(string? value) =>
         DateTimeOffset.TryParse(

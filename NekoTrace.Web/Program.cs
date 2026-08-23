@@ -103,7 +103,7 @@ var webAppTask = Task.Run(async () =>
     webAppBuilder.Services.AddControllers();
 
     // Served in process on the web host rather than as a separate stdio binary: NekoTrace is already a
-    // server, so there is nothing extra to run and configuring a client is one URL. See docs/ai-access.md.
+    // server, so there is nothing extra to run and configuring a client is one URL.
     webAppBuilder.Services
         .AddMcpServer(options => options.ServerInstructions = McpInstructions.Build())
         .WithHttpTransport()

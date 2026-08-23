@@ -9,7 +9,7 @@ using System.Globalization;
 /// Parsed here rather than passed through for two reasons. A value the server cannot read is dropped by the
 /// filter parsers without a word, so a typo would silently widen the query instead of failing; and a time with
 /// no offset on it has to be read as UTC to mean the same thing on every machine, which is the rule the rest
-/// of this API follows (<c>docs/ai-access.md</c>). Normalising to <c>…Z</c> before sending settles both, and
+/// of this API follows. Normalising to <c>…Z</c> before sending settles both, and
 /// it is the same shape every NekoTrace timestamp is printed in, so output feeds back in unchanged.
 /// </remarks>
 internal static class Timestamps

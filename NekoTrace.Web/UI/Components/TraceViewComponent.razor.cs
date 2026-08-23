@@ -3,12 +3,12 @@ namespace NekoTrace.Web.UI.Components;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using NekoTrace.Web.Repositories.Traces;
-using NekoTrace.Web.Services;
 using System.Collections.Immutable;
 
 public sealed partial class TraceViewComponent : IDisposable
 {
     public const string DEFAULT_SPAN_COLOR_SELECTOR = "otel.library.name";
+    public const string SELECTED_SPAN_ID_PARAMETER = "selectedSpanId";
 
     private ImmutableList<SpanData>? mClientSpans;
     private DotNetObjectReference<TraceViewComponent>? mSelfReference;
@@ -22,24 +22,6 @@ public sealed partial class TraceViewComponent : IDisposable
     [Parameter]
     public bool IsSmallMode { get; set; }
 
-    [SupplyParameterFromQuery]
-    public bool? GroupSpans { get; set; }
-
-    [SupplyParameterFromQuery]
-    public bool? AdjustClockSkew { get; set; }
-
-    [SupplyParameterFromQuery]
-    public string? SelectedSpanId { get; set; }
-
-    [SupplyParameterFromQuery]
-    public string? HiddenSpanNames { get; set; }
-
-    [SupplyParameterFromQuery]
-    public string? HiddenSpanIds { get; set; }
-
-    [SupplyParameterFromQuery]
-    public string? HiddenAttributeNames { get; set; }
-
     [Inject]
     public required TracesRepository TracesRepo { get; set; }
 
@@ -49,10 +31,7 @@ public sealed partial class TraceViewComponent : IDisposable
     [Inject]
     public required NavigationManager Navigation { get; set; }
 
-    [Inject]
-    public required BrowserTimeZone BrowserTimeZone { get; set; }
-
-    private ElementReference? TraceFlameCanvas { get; set; }
+    private ElementReference? TraceViewElement { get; set; }
 
     private IJSObjectReference? TraceModule { get; set; }
 
@@ -61,48 +40,8 @@ public sealed partial class TraceViewComponent : IDisposable
             ? null
             : this.TracesRepo.TryGetTrace(this.TraceId);
 
-    private SpanData? SelectedSpan =>
-        this.SelectedSpanId is not null
-        && (this.Trace?.SpansById.TryGetValue(this.SelectedSpanId, out var span) ?? false)
-            ? span
-            : null;
-
     private string EffectiveSpanColorSelector =>
         this.SpanColorSelector ?? DEFAULT_SPAN_COLOR_SELECTOR;
-
-    private ImmutableHashSet<string> HiddenAttributeNameSet =>
-        SplitFilterValue(this.HiddenAttributeNames)
-            .ToImmutableHashSet(StringComparer.Ordinal);
-
-    private static string[] SplitFilterValue(string? value) =>
-        value?.Split('|', StringSplitOptions.RemoveEmptyEntries) ?? [];
-
-    /// <summary>
-    /// Builds a link to the current page with <paramref name="newValue"/> added to a pipe separated query parameter.
-    /// </summary>
-    private string GetUriWithAddedFilterValue(
-        string parameterName,
-        string? currentValue,
-        string newValue
-    ) =>
-        this.Navigation.GetUriWithQueryParameter(
-            parameterName,
-            string.Join(
-                '|',
-                SplitFilterValue(currentValue)
-                    .Append(newValue)
-                    .Distinct(StringComparer.Ordinal)
-            )
-        );
-
-    protected override void OnInitialized()
-    {
-        base.OnInitialized();
-
-        // The span event times below are shown in the browser's zone, which on a first ever visit only arrives
-        // after this component has already rendered.
-        this.BrowserTimeZone.Changed += this.StateHasChanged;
-    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -110,7 +49,7 @@ public sealed partial class TraceViewComponent : IDisposable
         {
             this.TraceModule = await this.JSRuntime.InvokeAsync<IJSObjectReference>(
                 "import",
-                "/js/traceView.js"
+                "/js/traceViewInterop.js"
             );
 
             mSelfReference = DotNetObjectReference.Create(this);
@@ -120,11 +59,11 @@ public sealed partial class TraceViewComponent : IDisposable
         if (
             this.TraceModule is null
             || trace is null
-            || this.TraceFlameCanvas is null
+            || this.TraceViewElement is null
             || object.ReferenceEquals(mClientSpans, trace.Spans)
         )
         {
-            if (trace is null || this.TraceFlameCanvas is null)
+            if (trace is null || this.TraceViewElement is null)
             {
                 mClientSpans = [];
             }
@@ -136,61 +75,59 @@ public sealed partial class TraceViewComponent : IDisposable
 
         await this.TraceModule.InvokeVoidAsync(
             "initialize",
-            this.TraceFlameCanvas,
-            // Use a slim version of spans to reduce the amount of data sent to the browser.
-            // But also because parsing JSON is "slow".
-            mClientSpans.Select(
-                s =>
-                new SpanDataSlim()
-                {
-                    Id = s.Id,
-                    ParentSpanId = s.ParentSpanId,
-                    Name = s.Name,
-                    Kind = s.Kind,
-                    Attributes = s.Attributes,
-                    StartTimeMs = s.StartTimeMs,
-                    EndTimeMs = s.EndTimeMs,
-                    StatusCode = s.StatusCode,
-                    Events = s.Events,
-                }
-            ),
+            this.TraceViewElement,
+            new TraceViewData()
+            {
+                // Use a slim version of spans to reduce the amount of data sent to the browser.
+                // But also because parsing JSON is "slow".
+                Spans = mClientSpans.Select(
+                    s =>
+                    new SpanDataSlim()
+                    {
+                        Id = s.Id,
+                        ParentSpanId = s.ParentSpanId,
+                        Name = s.Name,
+                        Kind = s.Kind,
+                        Attributes = s.Attributes,
+                        StartTimeMs = s.StartTimeMs,
+                        EndTimeMs = s.EndTimeMs,
+                        StatusCode = s.StatusCode,
+                        StatusMessage = s.StatusMessage,
+                        Events = s.Events,
+                    }
+                ),
+                MaxSpanDurationMsByName = this.GetSpanNameMaxDurations(trace),
+            },
             mSelfReference,
-            nameof(SetSelectedSpanId)
+            nameof(this.Navigate)
         );
     }
 
+    /// <summary>
+    /// Called after the view has changed the URL, so <see cref="NavigationManager"/> does not go stale.
+    /// </summary>
     [JSInvokable]
-    public void SetSelectedSpanId(string? spanId)
+    // JS interop hands over a string and NavigateTo takes one, so a Uri would only be a parse and back.
+#pragma warning disable CA1054 // URI-like parameters should not be strings
+    public void Navigate(string url)
+#pragma warning restore CA1054
     {
-        this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(
-                nameof(this.SelectedSpanId),
-                spanId
-            ),
-            replace: true
-        );
+        this.Navigation.NavigateTo(url, replace: true);
     }
 
-    private void GroupSpans_Change(ChangeEventArgs e)
+    private Dictionary<string, double> GetSpanNameMaxDurations(TraceItem trace)
     {
-        this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(
-                nameof(this.GroupSpans),
-                (e.Value as bool? ?? false) ? null : false
-            ),
-            replace: true
-        );
-    }
+        var maxDurations = new Dictionary<string, double>(StringComparer.Ordinal);
 
-    private void AdjustClockSkew_Change(ChangeEventArgs e)
-    {
-        this.Navigation.NavigateTo(
-            this.Navigation.GetUriWithQueryParameter(
-                nameof(this.AdjustClockSkew),
-                (e.Value as bool? ?? false) ? true : null
-            ),
-            replace: true
-        );
+        foreach (var name in trace.Spans.Select(s => s.Name).Distinct(StringComparer.Ordinal))
+        {
+            if (this.TracesRepo.SpanRepositoriesByName.TryGetValue(name, out var spanRepository))
+            {
+                maxDurations[name] = spanRepository.MaxDuration.TotalMilliseconds;
+            }
+        }
+
+        return maxDurations;
     }
 
     private void RemoveButton_Click()
@@ -205,8 +142,6 @@ public sealed partial class TraceViewComponent : IDisposable
 
     public void Dispose()
     {
-        this.BrowserTimeZone.Changed -= this.StateHasChanged;
-
         mSelfReference?.Dispose();
     }
 }

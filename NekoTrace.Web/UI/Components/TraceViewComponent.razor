@@ -13,6 +13,10 @@
     }
 }
 
+@*
+    The flame graph, its controls and the span detail panel are all the <neko-trace-view> element in
+    scripts/trace-view. What stays here belongs to this app rather than to looking at a trace.
+*@
 <div class="trace @(this.IsSmallMode ? "small" : "full")">
     @if (!this.IsSmallMode)
     {
@@ -21,7 +25,7 @@
         </h1>
     }
 
-    <div class="commands inline-controls" style="align-items: center;">
+    <div class="commands inline-controls">
         @if (this.IsSmallMode)
         {
             <a href="traces/@Uri.EscapeDataString(this.TraceId)">
@@ -34,47 +38,6 @@
             Export
         </a>
 
-        <label class="inline-control">
-            <input type="checkbox"
-                   checked="@(this.GroupSpans ?? true)"
-                   @onchange="this.GroupSpans_Change" />
-            <span>
-                Group Spans
-            </span>
-        </label>
-
-        <label class="inline-control">
-            <input type="checkbox"
-                   checked="@(this.AdjustClockSkew ?? false)"
-                   @onchange="this.AdjustClockSkew_Change" />
-            <span>
-                Adjust Clock Skew
-            </span>
-        </label>
-
-        <Hint>
-            <h2>
-                Tips
-            </h2>
-            <ul>
-                <li>
-                    Click and drag to pan.
-                </li>
-                <li>
-                    <code>MouseWheel</code> to zoom in and out.
-                </li>
-                <li>
-                    <code>Alt + MouseWheel</code> to scroll vertically.
-                </li>
-                <li>
-                    <code>Alt + Shift + MouseWheel</code> to scroll horizontally.
-                </li>
-                <li>
-                    Double click to reset zoom and location.
-                </li>
-            </ul>
-        </Hint>
-
         <button @onclick="this.RemoveButton_Click"
                 class="danger">
             Delete
@@ -83,121 +46,13 @@
         @if (this.IsSmallMode)
         {
             <a href="@this.Navigation.GetUriWithQueryParameter("TraceId", (string?)null)"
-               style="margin-inline-start: auto;">
+               class="close">
                 Close
             </a>
         }
     </div>
 
-    <canvas @ref="this.TraceFlameCanvas"
-            width="@(this.IsSmallMode ? 900 : 1100)"
-            height="@(this.IsSmallMode ? 500 : 1000)"
-            data-span-color-selector="@this.EffectiveSpanColorSelector" />
-
-    <div class="info">
-        @if (this.SelectedSpan is not null)
-        {
-            var hideNameUrl = this.GetUriWithAddedFilterValue(nameof(this.HiddenSpanNames), this.HiddenSpanNames, this.SelectedSpan.Name);
-            var hideIdUrl = this.GetUriWithAddedFilterValue(nameof(this.HiddenSpanIds), this.HiddenSpanIds, this.SelectedSpan.Id);
-            var hiddenAttributeNames = this.HiddenAttributeNameSet;
-
-            <div style="display: flex; gap: 1ch;">
-                <a href="@hideIdUrl">
-                    Hide span
-                </a>
-
-                <a href="@hideNameUrl">
-                    Hide spans with name
-                </a>
-            </div>
-
-            <dl class="span-info">
-                <dt>Name</dt>
-                <dd class="name">
-                    <CopyableValue Value="@this.SelectedSpan.Name">
-                        <a href="@($"/spans/{Uri.EscapeDataString(this.SelectedSpan.Name)}")">
-                            @this.SelectedSpan.Name
-                        </a>
-                    </CopyableValue>
-                </dd>
-                <dt>Start</dt>
-                <dd class="duration">
-                    <CopyableValue Value="@(this.SelectedSpan.StartTime - trace.Start)" />
-                </dd>
-                <dt>Duration</dt>
-                <dd class="duration">
-                    <CopyableValue Value="@(this.SelectedSpan.DurationText)" />
-                </dd>
-                <dt>Performance</dt>
-                <dd class="performance">
-                    @{
-                        var performance = this.TracesRepo.SpanRepositoriesByName.TryGetValue(this.SelectedSpan.Name, out var spanRepository)
-                        ? "p" + ((this.SelectedSpan.Duration.TotalMilliseconds / spanRepository.MaxDuration.TotalMilliseconds) * 100).ToString("G3")
-                        : null;
-                    }
-                    <CopyableValue Value="@performance" />
-                </dd>
-                <dt>Kind</dt>
-                <dd class="kind">
-                    <CopyableValue Value="@this.SelectedSpan.Kind" />
-                </dd>
-                <dt>Parent</dt>
-                <dd class="parent">
-                    @if (trace.SpansById.TryGetValue(this.SelectedSpan.ParentSpanId ?? string.Empty, out var parentSpan))
-                    {
-                        <CopyableValue Value="@parentSpan.Name" />
-                    }
-                </dd>
-                @if (!string.IsNullOrEmpty(this.SelectedSpan.StatusMessage))
-                {
-                    <dt>Message</dt>
-                    <dd class="status-message">
-                        <CopyableValue Value="@this.SelectedSpan.StatusMessage" />
-                    </dd>
-                }
-                @foreach (var spanAttribute in this.SelectedSpan.Attributes.OrderBy(e => e.Key).Where(e => !hiddenAttributeNames.Contains(e.Key)))
-                {
-                    <dt class="key">
-                        @spanAttribute.Key
-                        <HideAttributeButton Href="@this.GetUriWithAddedFilterValue(nameof(this.HiddenAttributeNames), this.HiddenAttributeNames, spanAttribute.Key)" />
-                    </dt>
-                    <dd class="value">
-                        <CopyableValue Value="@spanAttribute.Value" />
-                    </dd>
-                }
-            </dl>
-
-            @if (this.SelectedSpan.Events.Length > 0)
-            {
-                <h2>
-                    Events
-                </h2>
-                <div class="events">
-                    @foreach (var spanEvent in this.SelectedSpan.Events)
-                    {
-                        <dl class="event span-info">
-                            <dt>Name</dt>
-                            <dd class="name">
-                                <CopyableValue Value="@spanEvent.Name" />
-                            </dd>
-                            <dt>Time</dt>
-                            <dd class="time">
-                                <CopyableValue Value="@this.BrowserTimeZone.ToBrowserTime(spanEvent.Time)" />
-                            </dd>
-                            @foreach (var eventAttribute in spanEvent.Attributes.Where(e => !hiddenAttributeNames.Contains(e.Key)))
-                            {
-                                <dt class="key">
-                                    @eventAttribute.Key
-                                    <HideAttributeButton Href="@this.GetUriWithAddedFilterValue(nameof(this.HiddenAttributeNames), this.HiddenAttributeNames, eventAttribute.Key)" />
-                                </dt>
-                                <dd class="value">
-                                    <CopyableValue Value="@eventAttribute.Value" />
-                                </dd>
-                            }
-                        </dl>
-                    }
-                </div>
-            }
-        }
-    </div>
+    <neko-trace-view @ref="this.TraceViewElement"
+                     data-span-color-selector="@this.EffectiveSpanColorSelector"
+                     data-span-name-href="/spans/{name}"></neko-trace-view>
 </div>

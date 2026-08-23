@@ -155,7 +155,7 @@ public sealed record TraceFilter
     /// <c>TraceSaveFilter</c> — has a browser to ask, so the host's culture and zone are the only other
     /// candidates and both make the same string mean different things on different machines. The UI does not
     /// come through here: it builds a filter directly through <c>BrowserTimeZone.ParseInputToLocal</c>, which
-    /// is where the viewer's zone belongs. See <c>docs/localization.md</c>.
+    /// is where the viewer's zone belongs.
     /// </remarks>
     public static TraceFilter Parse(string? queryString)
     {
