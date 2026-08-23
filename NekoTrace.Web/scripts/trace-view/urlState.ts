@@ -21,7 +21,7 @@ export function readOptionsFromUrl(): TraceViewOptions {
 
     return {
         groupSpans: searchParams.get(queryOptionNames.groupSpans)?.toLowerCase() !== "false",
-        adjustClockSkew: searchParams.get(queryOptionNames.adjustClockSkew)?.toLowerCase() === "true",
+        adjustClockSkew: searchParams.get(queryOptionNames.adjustClockSkew)?.toLowerCase() !== "false",
         selectedSpanId: searchParams.get(queryOptionNames.selectedSpanId) ?? undefined,
         hiddenSpanNames: new Set(splitFilterValue(searchParams.get(queryOptionNames.hiddenSpanNames))),
         hiddenSpanIds: new Set(splitFilterValue(searchParams.get(queryOptionNames.hiddenSpanIds))),
