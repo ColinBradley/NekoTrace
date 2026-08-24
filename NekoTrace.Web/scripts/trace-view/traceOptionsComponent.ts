@@ -8,13 +8,12 @@ export class TraceOptionsComponent {
     public constructor(root: HTMLElement) {
         this.groupSpansComponent = createCheckbox(
             "Group Spans",
-            // Grouping is on unless the URL says otherwise, so the usual case leaves the parameter off.
             checked => writeUrlParameter(queryOptionNames.groupSpans, checked ? undefined : "false")
         );
 
         this.adjustClockSkewComponent = createCheckbox(
             "Adjust Clock Skew",
-            checked => writeUrlParameter(queryOptionNames.adjustClockSkew, checked ? "true" : undefined)
+            checked => writeUrlParameter(queryOptionNames.adjustClockSkew, checked ? undefined : "false")
         );
 
         root.append(
