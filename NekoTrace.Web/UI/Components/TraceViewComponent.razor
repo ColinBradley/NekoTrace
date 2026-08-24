@@ -28,7 +28,7 @@
     <div class="commands inline-controls">
         @if (this.IsSmallMode)
         {
-            <a href="traces/@Uri.EscapeDataString(this.TraceId)">
+            <a href="@this.FullViewUri">
                 Full View
             </a>
         }

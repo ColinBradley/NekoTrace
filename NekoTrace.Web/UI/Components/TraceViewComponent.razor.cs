@@ -1,6 +1,9 @@
 namespace NekoTrace.Web.UI.Components;
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Primitives;
 using Microsoft.JSInterop;
 using NekoTrace.Web.Repositories.Traces;
 using System.Collections.Immutable;
@@ -9,6 +12,16 @@ public sealed partial class TraceViewComponent : IDisposable
 {
     public const string DEFAULT_SPAN_COLOR_SELECTOR = "otel.library.name";
     public const string SELECTED_SPAN_ID_PARAMETER = "selectedSpanId";
+
+    private static readonly ImmutableArray<string> sTraceViewOptionParameters =
+    [
+        "groupSpans",
+        "adjustClockSkew",
+        SELECTED_SPAN_ID_PARAMETER,
+        "hiddenSpanNames",
+        "hiddenSpanIds",
+        "hiddenAttributeNames",
+    ];
 
     private ImmutableArray<SpanData> mClientSpans;
     private DotNetObjectReference<TraceViewComponent>? mSelfReference;
@@ -42,6 +55,28 @@ public sealed partial class TraceViewComponent : IDisposable
 
     private string EffectiveSpanColorSelector =>
         this.SpanColorSelector ?? DEFAULT_SPAN_COLOR_SELECTOR;
+
+    private string FullViewUri
+    {
+        get
+        {
+            var currentOptions = QueryHelpers.ParseQuery(new Uri(this.Navigation.Uri).Query);
+
+            return QueryHelpers.AddQueryString(
+                $"traces/{Uri.EscapeDataString(this.TraceId)}",
+                sTraceViewOptionParameters
+                    .Where(currentOptions.ContainsKey)
+                    .Select(name => new KeyValuePair<string, StringValues>(name, currentOptions[name]))
+            );
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        this.Navigation.LocationChanged += this.Navigation_LocationChanged;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -115,6 +150,12 @@ public sealed partial class TraceViewComponent : IDisposable
         this.Navigation.NavigateTo(url, replace: true);
     }
 
+    private void Navigation_LocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        // Ensure FullViewUri is fresh
+        _ = this.InvokeAsync(this.StateHasChanged);
+    }
+
     private Dictionary<string, double> GetSpanNameMaxDurations(TraceItem trace)
     {
         var maxDurations = new Dictionary<string, double>(StringComparer.Ordinal);
@@ -142,6 +183,8 @@ public sealed partial class TraceViewComponent : IDisposable
 
     public void Dispose()
     {
+        this.Navigation.LocationChanged -= this.Navigation_LocationChanged;
+
         mSelfReference?.Dispose();
     }
 }
