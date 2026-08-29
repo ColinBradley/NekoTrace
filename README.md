@@ -7,7 +7,7 @@
 - View by trace or span type.
 - Simple to run - [portable executable](https://github.com/ColinBradley/NekoTrace/releases/latest) with no infrastructure dependencies (like a database).
 - All stored in memory (with retention option(s)).
-- Built in MCP server at `/mcp`, there's also a cli for better analysis (advertised by the MCP).
+- Built in MCP server at `http://localhost:8347/mcp`, there's also a cli for better analysis (advertised by the MCP).
 
 Available on [Docker Hub](https://hub.docker.com/r/colinbradley/nekotrace).
 

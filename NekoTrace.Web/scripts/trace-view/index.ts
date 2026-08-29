@@ -98,7 +98,7 @@ export class TraceViewElement extends HTMLElement {
             this.canvasElement.className = "trace-view-canvas";
 
             this.detailsElement = document.createElement("div");
-            this.detailsElement.className = "trace-view-details";
+            this.detailsElement.className = "trace-view-span-details";
 
             // The grid sits one level in because a container query styles descendants, not the container.
             const layout = document.createElement("div");
@@ -145,6 +145,7 @@ export class TraceViewElement extends HTMLElement {
     private getDetailsSettings(): SpanDetailsSettings {
         return {
             hiddenAttributeNames: this.options.hiddenAttributeNames,
+            expandValues: this.options.expandSpanValues,
             spanNameHrefTemplate: this.getAttribute(SPAN_NAME_HREF_ATTRIBUTE_NAME) ?? undefined,
             maxSpanDurationMsByName: this.traceData?.maxSpanDurationMsByName,
         };

@@ -66,3 +66,15 @@ Markdown: put each paragraph, list item and table row on one line, however long 
 
 Adhere to machine line ending choices. Windows line endings are probably CRLF. It'll all get stored as LF anyway.
 
+## Comments
+
+Comment the non-obvious **why**: a constraint, a footgun, a decision the next person would otherwise undo. Nothing else.
+
+Delete a comment if it does any of these:
+
+- Restates what the code already says.
+- Justifies a convention already written down here.
+- Narrates the decision — alternatives weighed, what was considered and rejected, why one approach beats another.
+- Editorialises: "worth knowing", "earns its place", "unusually well placed".
+
+A doc comment on a type or member is for someone calling it, not for someone reviewing the choice to write it. If it reads as reasoning rather than as information needed to change the code safely, it goes.

@@ -1,6 +1,7 @@
 export interface TraceViewOptions {
     readonly groupSpans: boolean;
     readonly adjustClockSkew: boolean;
+    readonly expandSpanValues: boolean;
     readonly selectedSpanId?: string;
     readonly hiddenSpanNames: Set<string>;
     readonly hiddenSpanIds: Set<string>;
@@ -10,6 +11,7 @@ export interface TraceViewOptions {
 export const queryOptionNames = {
     groupSpans: "groupSpans",
     adjustClockSkew: "adjustClockSkew",
+    expandSpanValues: "expandSpanValues",
     selectedSpanId: "selectedSpanId",
     hiddenSpanNames: "hiddenSpanNames",
     hiddenSpanIds: "hiddenSpanIds",
@@ -22,6 +24,7 @@ export function readOptionsFromUrl(): TraceViewOptions {
     return {
         groupSpans: searchParams.get(queryOptionNames.groupSpans)?.toLowerCase() !== "false",
         adjustClockSkew: searchParams.get(queryOptionNames.adjustClockSkew)?.toLowerCase() !== "false",
+        expandSpanValues: searchParams.get(queryOptionNames.expandSpanValues)?.toLowerCase() !== "false",
         selectedSpanId: searchParams.get(queryOptionNames.selectedSpanId) ?? undefined,
         hiddenSpanNames: new Set(splitFilterValue(searchParams.get(queryOptionNames.hiddenSpanNames))),
         hiddenSpanIds: new Set(splitFilterValue(searchParams.get(queryOptionNames.hiddenSpanIds))),

@@ -16,7 +16,9 @@ export function createCopyableValueElement(value: string, content?: Node): Docum
     const container = document.createDocumentFragment();
 
     const text = document.createElement("span");
-    text.className = "text";
+    // Values with multiple lines are pre formatted.
+    // Otherwise we allow wrapping.
+    text.className = value.includes("\n") ? "text multi-line" : "text";
     text.append(content ?? value);
     container.append(text);
 

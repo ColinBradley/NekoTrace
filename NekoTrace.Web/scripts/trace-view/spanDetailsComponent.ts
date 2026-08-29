@@ -1,7 +1,7 @@
 import { createCopyableValueElement } from "./copyValueComponent.ts";
 import { formatAttributeValue, formatDuration, formatTime } from "./localValueFormatting.ts";
 import { getSpanKindName, type AttributeValue, type SpanItem } from "./types.ts";
-import { buildUrlWithAddedFilterValue, queryOptionNames } from "./urlState.ts";
+import { buildUrlWithAddedFilterValue, buildUrlWithParameter, queryOptionNames } from "./urlState.ts";
 
 const HIDE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a19.9 19.9 0 0 1-3.1 4.2" />
@@ -10,8 +10,23 @@ const HIDE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
     <path d="m2 2 20 20" />
 </svg>`;
 
+const EXPAND_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m7 6 5 5 5-5" />
+    <path d="m7 13 5 5 5-5" />
+</svg>`;
+
+const COLLAPSE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m17 11-5-5-5 5" />
+    <path d="m17 18-5-5-5 5" />
+</svg>`;
+
+const EXPANDED_VALUES_CLASS_NAME = "expanded-values";
+
 export interface SpanDetailsSettings {
     readonly hiddenAttributeNames: Set<string>;
+
+    /** Whether every value is shown in full, rather than the hovered one alone. */
+    readonly expandValues: boolean;
 
     /** Where a span name links to, with {name} standing in for it. Nothing links when it is unset. */
     readonly spanNameHrefTemplate?: string;
@@ -26,7 +41,10 @@ export class SpanDetailsComponent {
 
     private span?: SpanItem;
     private traceStartMs = 0;
-    private settings: SpanDetailsSettings = { hiddenAttributeNames: new Set() };
+    private settings: SpanDetailsSettings = {
+        hiddenAttributeNames: new Set(),
+        expandValues: true,
+    };
 
     public constructor(root: HTMLElement) {
         this.root = root;
@@ -50,13 +68,17 @@ export class SpanDetailsComponent {
 
     private render() {
         this.root.replaceChildren();
+        this.root.classList.toggle(
+            EXPANDED_VALUES_CLASS_NAME,
+            this.settings.expandValues
+        );
 
         const span = this.span;
         if (span === undefined) {
             return;
         }
 
-        this.root.append(this.createHideLinks(span), this.createSpanList(span));
+        this.root.append(this.createCommandBar(span), this.createSpanList(span));
 
         if (span.events.length > 0) {
             const heading = document.createElement("h2");
@@ -70,16 +92,40 @@ export class SpanDetailsComponent {
         }
     }
 
-    private createHideLinks(span: SpanItem): HTMLElement {
+    private createCommandBar(span: SpanItem): HTMLElement {
         const container = document.createElement("div");
-        container.className = "span-links";
+        container.className = "span-commands";
 
         container.append(
-            createLink("Hide span", buildUrlWithAddedFilterValue(queryOptionNames.hiddenSpanIds, span.id)),
-            createLink("Hide spans with name", buildUrlWithAddedFilterValue(queryOptionNames.hiddenSpanNames, span.name))
+            createLink(
+                "Hide span",
+                buildUrlWithAddedFilterValue(queryOptionNames.hiddenSpanIds, span.id)
+            ),
+            createLink(
+                "Hide spans with name",
+                buildUrlWithAddedFilterValue(queryOptionNames.hiddenSpanNames, span.name)
+            ),
+            this.createExpandValuesButton()
         );
 
         return container;
+    }
+
+    private createExpandValuesButton(): HTMLAnchorElement {
+        const expanded = this.settings.expandValues;
+
+        const button = document.createElement("a");
+        button.className = "icon-button expand-values-button";
+        button.title = expanded
+            ? "Toggle value visibility - click to collapse."
+            : "Toggle value visibility - click to expand.";
+        button.href = buildUrlWithParameter(
+            queryOptionNames.expandSpanValues,
+            expanded ? "false" : undefined
+        );
+        button.innerHTML = expanded ? COLLAPSE_ICON : EXPAND_ICON;
+
+        return button;
     }
 
     private createSpanList(span: SpanItem): HTMLElement {
@@ -183,7 +229,7 @@ function createLink(text: string, href: string): HTMLAnchorElement {
 
 function createHideAttributeButton(name: string): HTMLAnchorElement {
     const button = document.createElement("a");
-    button.className = "hide-button";
+    button.className = "icon-button hide-button";
     button.title = "Hide attribute";
     button.href = buildUrlWithAddedFilterValue(queryOptionNames.hiddenAttributeNames, name);
     button.innerHTML = HIDE_ICON;

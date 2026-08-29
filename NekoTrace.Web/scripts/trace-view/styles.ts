@@ -122,7 +122,7 @@ neko-trace-view .trace-view-canvas {
         cursor: grabbing;
     }
 
-neko-trace-view .trace-view-details {
+neko-trace-view .trace-view-span-details {
     display: flex;
     flex-direction: column;
     gap: var(--neko-trace-gap);
@@ -132,10 +132,16 @@ neko-trace-view .trace-view-details {
     min-height: 0;
 }
 
-neko-trace-view .span-links {
+neko-trace-view .span-commands {
     display: flex;
+    align-items: center;
     gap: 1ch;
 }
+
+    /* Pushed to the end of the bar, away from the links that change what the panel is showing. */
+    neko-trace-view .expand-values-button {
+        margin-inline-start: auto;
+    }
 
 neko-trace-view .events {
     display: flex;
@@ -158,21 +164,26 @@ neko-trace-view .span-info {
     }
 
     neko-trace-view .span-info dd {
+        /* Anchors the copy button, which is out of flow and so cannot reach a row's height */
+        position: relative;
         margin: 0;
         overflow: hidden;
         white-space: nowrap;
-        /* The value does its own ellipsing, otherwise text-overflow stops the copy button being painted */
-        text-overflow: clip;
     }
 
-        neko-trace-view .span-info dd:hover {
+        neko-trace-view :is(.span-info dd:hover, .expanded-values .span-info dd) {
             overflow: visible;
-            white-space: pre;
+            white-space: pre-wrap;
         }
 
-            neko-trace-view .span-info dd:hover .text {
+            neko-trace-view :is(.span-info dd:hover, .expanded-values .span-info dd) .text {
                 max-width: none;
                 overflow: visible;
+                word-break: break-all;
+            }
+
+            neko-trace-view :is(.span-info dd:hover, .expanded-values .span-info dd) .multi-line {
+                white-space: pre;
             }
 
 neko-trace-view .text {
@@ -186,17 +197,15 @@ neko-trace-view .text {
 /* --- Copy and hide buttons ------------------------------------------------------------------------ */
 
 neko-trace-view .copy-button {
-    /* Sticky so it sits at the end of the text, but slides over it when the text is too long to fit */
-    position: sticky;
+    /* Out of flow at the corner of the value, so it neither moves between rows nor sets their height */
+    position: absolute;
+    inset-block-start: 0;
     inset-inline-end: 0;
-    margin-inline-start: .5ch;
     padding: 0.1em .2em;
     font-size: 1em;
-    /* Values are rendered with white-space: pre while hovered, which the icons must not inherit */
+    /* The icons must not inherit the whitespace of a value that kept its own line breaks */
     white-space: normal;
     line-height: 0;
-    /* Top, so that it stays on the first line of values that span several */
-    vertical-align: top;
     color: inherit;
     background-color: canvas;
     border: var(--neko-trace-button-border);
@@ -204,9 +213,9 @@ neko-trace-view .copy-button {
     cursor: pointer;
 }
 
-neko-trace-view .hide-button {
+/* A link wearing a button's clothes, since these all navigate rather than act. */
+neko-trace-view .icon-button {
     display: inline-block;
-    margin-inline-start: .5ch;
     padding: 0.1em .2em;
     line-height: 0;
     vertical-align: middle;
@@ -218,7 +227,11 @@ neko-trace-view .hide-button {
     cursor: pointer;
 }
 
-neko-trace-view :is(.copy-button, .hide-button) svg {
+neko-trace-view .hide-button {
+    margin-inline-start: .5ch;
+}
+
+neko-trace-view :is(.copy-button, .icon-button) svg {
     width: 1em;
     height: 1em;
 }

@@ -17,6 +17,7 @@ public sealed partial class TraceViewComponent : IDisposable
     [
         "groupSpans",
         "adjustClockSkew",
+        "expandSpanValues",
         SELECTED_SPAN_ID_PARAMETER,
         "hiddenSpanNames",
         "hiddenSpanIds",
