@@ -13,6 +13,9 @@ public partial class MetricsPage
 
     private MetricItemBase? mPreviouslySelectedMetric;
 
+    private ApexChart<NumberDataPoint>? mLastRenderedMetricChart;
+    private ApexChart<HistogramItem>? mLastRenderedHistogramChart;
+
     public MetricsPage()
     {
         this.HistogramChartOptions.Theme = this.MetricChartOptions.Theme = new Theme()
@@ -115,11 +118,21 @@ public partial class MetricsPage
 
         if (mHasPendingRender)
         {
-            this.MetricChart?.RenderAsync();
-            this.HistogramChart?.RenderAsync();
+            if (this.MetricChart is not null && this.MetricChart == mLastRenderedMetricChart)
+            {
+                this.MetricChart.RenderAsync();
+            }
+
+            if (this.HistogramChart is not null && this.HistogramChart == mLastRenderedHistogramChart)
+            {
+                this.HistogramChart.RenderAsync();
+            }
 
             mHasPendingRender = false;
         }
+
+        mLastRenderedMetricChart = this.MetricChart;
+        mLastRenderedHistogramChart = this.HistogramChart;
     }
 
     private void Refresh()
@@ -127,14 +140,11 @@ public partial class MetricsPage
         _ = this.InvokeAsync(
             () =>
             {
-                this.StateHasChanged();
-
                 // We might still be waiting on the component to render,
                 // so flag to do this again after a render.
                 mHasPendingRender = true;
 
-                this.MetricChart?.RenderAsync();
-                this.HistogramChart?.RenderAsync();
+                this.StateHasChanged();
             }
         );
     }
