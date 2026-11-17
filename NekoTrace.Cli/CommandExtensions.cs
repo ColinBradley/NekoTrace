@@ -27,13 +27,13 @@ internal static class CommandExtensions
             }
             catch (CliException failure)
             {
-                await Console.Error.WriteLineAsync(failure.Message);
+                await Console.Error.WriteLineAsync(failure.Message, cancellationToken);
 
                 return failure.ExitCode;
             }
             catch (IOException failure)
             {
-                await Console.Error.WriteLineAsync(failure.Message);
+                await Console.Error.WriteLineAsync(failure.Message, cancellationToken);
 
                 return ExitCodes.REFUSED;
             }

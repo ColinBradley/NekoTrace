@@ -129,7 +129,7 @@ public sealed class TraceDiskWriter : IAsyncDisposable
                     try
                     {
                         File.Delete(rejectedFilePath);
-                        await Console.Out.WriteLineAsync($"[TraceDiskWriter] Deleted rejected trace file: {state.Filename}");
+                        await Console.Out.WriteLineAsync($"[TraceDiskWriter] Deleted rejected trace file: {state.Filename}", CancellationToken.None);
                     }
                     catch
                     {
@@ -210,7 +210,7 @@ public sealed class TraceDiskWriter : IAsyncDisposable
                         // Nothing to do
                     }
 
-                    await Console.Error.WriteLineAsync($"[TraceDiskWriter] Failed to write trace {trace.Id}. {ex.Message}");
+                    await Console.Error.WriteLineAsync($"[TraceDiskWriter] Failed to write trace {trace.Id}. {ex.Message}", CancellationToken.None);
                 }
             }
         );

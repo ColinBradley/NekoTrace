@@ -1,6 +1,6 @@
 ## Commands
 
-Requires the .NET 10 SDK. Node.js is needed on non-Windows to run the TypeScript compiler that MSBuild invokes.
+Requires the .NET 11 SDK. Node.js is needed on non-Windows to run the TypeScript compiler that MSBuild invokes.
 
 ```powershell
 dotnet build NekoTrace.slnx

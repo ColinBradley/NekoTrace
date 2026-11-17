@@ -37,7 +37,7 @@ public sealed class TraceViewsTests : IDisposable
             4,
             (view.Flat ?? string.Empty)
                 .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-                .Count(line => !line.StartsWith('#'))
+                .Count(line => !line.StartsWith('#', StringComparison.Ordinal))
         );
     }
 
@@ -114,7 +114,7 @@ public sealed class TraceViewsTests : IDisposable
 
         var lines = (view.Flat ?? string.Empty)
             .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-            .Where(line => !line.StartsWith('#'))
+            .Where(line => !line.StartsWith('#', StringComparison.Ordinal))
             .ToArray();
 
         Assert.Equal(2, lines.Length);
@@ -155,7 +155,7 @@ public sealed class TraceViewsTests : IDisposable
         Assert.Single(
             (view.Flat ?? string.Empty)
                 .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-                .Where(line => !line.StartsWith('#'))
+                .Where(line => !line.StartsWith('#', StringComparison.Ordinal))
         );
     }
 
@@ -260,7 +260,7 @@ public sealed class TraceViewsTests : IDisposable
         var line = Assert.Single(
             (view.Flat ?? string.Empty)
                 .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-                .Where(candidate => !candidate.StartsWith('#'))
+                .Where(candidate => !candidate.StartsWith('#', StringComparison.Ordinal))
         );
 
         Assert.Equal(8, line.Split('\t').Length);
@@ -293,7 +293,7 @@ public sealed class TraceViewsTests : IDisposable
 
         var rows = flat
             .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-            .Where(line => !line.StartsWith('#'))
+            .Where(line => !line.StartsWith('#', StringComparison.Ordinal))
             .ToArray();
 
         Assert.Equal(3, rows.Length);

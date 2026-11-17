@@ -164,7 +164,7 @@ public sealed record TraceFilter
             return Empty;
         }
 
-        if (queryString.StartsWith('?'))
+        if (queryString.StartsWith('?', StringComparison.Ordinal))
         {
             queryString = queryString[1..];
         }

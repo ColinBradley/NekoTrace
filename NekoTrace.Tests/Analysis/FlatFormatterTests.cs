@@ -42,7 +42,7 @@ public sealed class FlatFormatterTests
 
         // `grep -v '^#'` has to leave exactly the data, or every count taken off this output is wrong. The
         // legend, the column names and the footer are all notes.
-        Assert.All(Lines(flat), line => Assert.True(line.StartsWith('#') || line.Split('\t').Length is TREE_FIELDS));
+        Assert.All(Lines(flat), line => Assert.True(line.StartsWith('#', StringComparison.Ordinal) || line.Split('\t').Length is TREE_FIELDS));
     }
 
     [Fact]
@@ -232,5 +232,5 @@ public sealed class FlatFormatterTests
         flat.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
 
     private static string[] Spans(string flat) =>
-        [.. Lines(flat).Where(line => !line.StartsWith('#'))];
+        [.. Lines(flat).Where(line => !line.StartsWith('#', StringComparison.Ordinal))];
 }

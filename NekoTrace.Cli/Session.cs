@@ -158,7 +158,8 @@ internal sealed class Session : IDisposable
         // To standard error on purpose: standard output is the answer to the command, and a note about the
         // upload landing in the middle of it would be one line of prose in something being parsed.
         await Console.Error.WriteLineAsync(
-            "# uploaded " + file.Name + " — trace " + string.Join(", ", ids)
+            "# uploaded " + file.Name + " — trace " + string.Join(", ", ids),
+            cancellationToken
         );
 
         return ids[0];
